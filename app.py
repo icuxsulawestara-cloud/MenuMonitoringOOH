@@ -1304,6 +1304,7 @@ elif menu == "3. Penggantian Brand & Visual":
                     zona_val, sektor_val, jenis_val, ukuran_val, kat_val, jml_muka = "-", "-", "-", "-", "-", 1
 
                 ket_str = str(item.get("Keterangan / PIC", ""))
+
                 if "[Event]" in ket_str:
                     brand_lama = clean_str(item.get("Brand Event Lama"), "")
                     if brand_lama in ["", "-"]:
@@ -1316,8 +1317,8 @@ elif menu == "3. Penggantian Brand & Visual":
 
                     brand_baru = clean_str(item.get("Brand Event Baru"), "-").upper()
                     versi_baru = clean_str(item.get("Versi Event Baru"), "-")
-                    ket_lokasi = f"{item['Lokasi']} (Event)"
-                    
+                    ket_lokasi = f"{item.get('Lokasi', '-')} (Event)"
+
                 elif "[Selesai Event]" in ket_str:
                     brand_lama = clean_str(item.get("Brand Event Lama"), "")
                     if brand_lama in ["", "-"]:
@@ -1332,6 +1333,29 @@ elif menu == "3. Penggantian Brand & Visual":
                     versi_baru = clean_str(item.get("Versi Muka 1 Baru"), "-")
                     ket_lokasi = f"{item.get('Lokasi', '-')} (Selesai Event)"
 
+                else:
+                    brand_lama = clean_str(item.get("Brand Muka 1 Lama"), "-").upper()
+                    versi_lama = clean_str(item.get("Versi Muka 1 Lama"), "-")
+                    brand_baru = clean_str(item.get("Brand Muka 1 Baru"), "-").upper()
+                    versi_baru = clean_str(item.get("Versi Muka 1 Baru"), "-")
+                    ket_lokasi = str(item.get("Lokasi", "-"))
+
+                rows_formatted.append({
+                    "Zona": zona_val,
+                    "Sektor": sektor_val,
+                    "Jenis OOH": jenis_val,
+                    "Ukuran": ukuran_val,
+                    "Kat.": kat_val,
+                    "Jml Titik": 1,
+                    "Jml Muka / Titik": 1,
+                    "Jml Muka Total": jml_muka,
+                    "VENDOR": v_item.upper(),
+                    "Alamat OOH": ket_lokasi,
+                    "Brand": brand_lama,
+                    "Versi Lama": versi_lama,
+                    "Brand ": brand_baru,
+                    "Versi yang Baru / Penggantian": versi_baru,
+                })
             if not rows_formatted:
                 st.info("ℹ️ Tidak ada data penggantian visual yang valid untuk filter vendor & tanggal rencana order ini.")
             else:
