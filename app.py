@@ -1351,64 +1351,69 @@ elif menu == "3. Penggantian Brand & Visual":
                     )
 
                 with col_d2:
-                    target_vendor = selected_vendor_filter if selected_vendor_filter != "Semua Vendor" else all_vendors_in_batch[0]
-                    v_email_row = df_vendor_master[df_vendor_master["Nama Vendor"].astype(str).str.lower() == target_vendor.lower()]
-                    to_email = v_email_row["Email Vendor"].values[0] if not v_email_row.empty else ""
-                    
-                    cc_emails = "; ".join(df_pejabat_master["CC Email"].dropna().astype(str).tolist()) if not df_pejabat_master.empty else ""
-                    email_subject = f"Penggantian Visual OOH - {info_pasang_txt} ({target_vendor})"
-                    email_body = (
-                        f"Dear {target_vendor},\n\n"
-                        "Berikut penggantian visual OOH:\n\n"
-                        "Regards,\n\n"
-                        "Eka Sulawestara"
-                    )
-                    mailto_url = f"mailto:{urllib.parse.quote(to_email)}?cc={urllib.parse.quote(cc_emails)}&subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
-                    
-                    st.link_button(
-                        label=f"✉️ Buka Draft Email (TO: {to_email})",
-                        url=mailto_url,
-                        use_container_width=True
-                    )
+                    if selected_vendor_filter != "Semua Vendor":
+                        target_vendor = selected_vendor_filter
+                    elif all_vendors_in_batch:
+                        target_vendor = all_vendors_in_batch[0]
+                    else:
+                        target_vendor = None
+
+                    if target_vendor:
+                        v_email_row = df_vendor_master[
+                            df_vendor_master["Nama Vendor"].astype(str).str.lower()
+                            == target_vendor.lower()
+                        ]
+                        to_email = (
+                            v_email_row["Email Vendor"].values[0]
+                            if not v_email_row.empty
+                            else ""
+                        )
+
+                        cc_emails = (
+                            "; ".join(
+                                df_pejabat_master["CC Email"].dropna().astype(str).tolist()
+                            )
+                            if not df_pejabat_master.empty
+                            else ""
+                        )
+                        email_subject = (
+                            f"Penggantian Visual OOH - {info_pasang_txt} "
+                            f"({target_vendor})"
+                        )
+                        email_body = (
+                            f"Dear {target_vendor},\n\n"
+                            "Berikut penggantian visual OOH:\n\n"
+                            "Regards,\n\n"
+                            "Eka Sulawestara"
+                        )
+                        mailto_url = (
+                            f"mailto:{urllib.parse.quote(to_email)}"
+                            f"?cc={urllib.parse.quote(cc_emails)}"
+                            f"&subject={urllib.parse.quote(email_subject)}"
+                            f"&body={urllib.parse.quote(email_body)}"
+                        )
+
+                        st.link_button(
+                            label=f"✉️ Buka Draft Email (TO: {to_email})",
+                            url=mailto_url,
+                            use_container_width=True,
+                        )
+                    else:
+                        st.warning(
+                            "Draft email tidak dapat dibuat karena nama vendor "
+                            "belum tercatat pada riwayat."
+                        )
 
                     st.write("")
-                    if st.button("🗑️ Reset / Kosongkan Antrean Email Ini", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
+                    if st.button(
+                        "🗑️ Reset / Kosongkan Antrean Email Ini",
+                        use_container_width=True,
+                        type="secondary",
+                        key="btn_reset_antrean_email",
+                    ):
                         st.session_state["email_batch_cleared"] = True
                         st.success("✅ Antrean kirim email berhasil dikosongkan!")
                         st.rerun()
-
-        st.divider()
-        st.subheader("Riwayat Pergantian Brand, Visual & Event")
-        df_log = load_log_data()
-        if df_log.empty:
-            st.caption("Belum ada riwayat pergantian materi.")
-        else:
-            df_log_display = df_log.copy()
-            df_log_display.insert(0, "No", range(1, len(df_log_display) + 1))
-            st.dataframe(df_log_display, use_container_width=True, hide_index=True)
-
-            col_del1, col_del2 = st.columns([3, 1])
-            with col_del1:
-                row_to_delete = st.selectbox("Pilih Baris Riwayat yang Ingin Dihapus (Berdasarkan Index):", df_log.index.tolist())
-            with col_del2:
-                st.write("")
-                st.write("")
-                if st.button("🗑️ Hapus Baris Ini", use_container_width=True):
-                    log_row_to_del = df_log.loc[row_to_delete]
-                    rollback_log_entry(log_row_to_del)
-                    
-                    df_log = df_log.drop(row_to_delete).reset_index(drop=True)
-                    save_log_data(df_log)
-                    st.success(f"Baris riwayat ke-{row_to_delete} dihapus & data OOH dikembalikan ke kondisi semula (Rollback berhasil)!")
-                    st.rerun()
-
-            if st.button("⚠️ Hapus Seluruh Riwayat (Clear All Data)", type="secondary"):
-                for _, log_row_to_del in df_log.iterrows():
-                    rollback_log_entry(log_row_to_del)
-                
-                save_log_data(pd.DataFrame(columns=df_log.columns))
-                st.success("Semua riwayat dibersihkan & seluruh data OOH dikembalikan ke awal!")
-                st.rerun()
 
 # ==============================================================================
 # MENU 4: REPORT KONTRAK & WARNING
