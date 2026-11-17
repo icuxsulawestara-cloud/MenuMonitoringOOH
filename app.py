@@ -1,7 +1,6 @@
 import io
 import json
 import math
-import hashlib
 import os
 import urllib.parse
 from datetime import date
@@ -12,7 +11,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 import requests
-import hashlib
 
 from data_manager import (
     COLUMNS_MASTER,
@@ -1362,49 +1360,7 @@ elif menu == "3. Penggantian Brand & Visual":
                 st.info("ℹ️ Tidak ada data penggantian visual yang valid untuk filter vendor & tanggal rencana order ini.")
             else:
                 df_visual_table = pd.DataFrame(rows_formatted)
-
-                brand_color_palette = [
-                    ("#DBEAFE", "#1E3A8A"),
-                    ("#DCFCE7", "#14532D"),
-                    ("#FEF3C7", "#78350F"),
-                    ("#FCE7F3", "#831843"),
-                    ("#EDE9FE", "#4C1D95"),
-                    ("#CFFAFE", "#164E63"),
-                    ("#FFEDD5", "#7C2D12"),
-                    ("#FEE2E2", "#7F1D1D"),
-                ]
-
-                def style_brand_cell(value):
-                    brand = clean_str(value, "")
-                    if brand in ["", "-"]:
-                        return "font-weight: bold;"
-
-                    color_index = int(
-                        hashlib.md5(brand.casefold().encode("utf-8")).hexdigest(),
-                        16,
-                    ) % len(brand_color_palette)
-                    background_color, text_color = brand_color_palette[color_index]
-
-                    return (
-                        f"background-color: {background_color}; "
-                        f"color: {text_color}; "
-                        "font-weight: bold;"
-                    )
-
-                brand_columns = [
-                    column for column in ["Brand", "Brand "]
-                    if column in df_visual_table.columns
-                ]
-                styled_visual_table = df_visual_table.style.map(
-                    style_brand_cell,
-                    subset=brand_columns,
-                )
-
-                st.dataframe(
-                    styled_visual_table,
-                    use_container_width=True,
-                    hide_index=True,
-                )   
+                st.dataframe(df_visual_table, use_container_width=True, hide_index=True)
 
                 png_bytes = generate_ooh_replacement_png(
                     df_table=df_visual_table,
