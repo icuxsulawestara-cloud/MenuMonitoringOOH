@@ -414,6 +414,7 @@ menu = st.sidebar.radio(
         "3. Penggantian Brand & Visual",
         "4. Report Kontrak & Warning",
         "5. Pengaturan Master (Vendor, Visual & Pejabat)",
+        "6. Monitoring Visual OOH (Event)",
     ],
 )
 
@@ -1466,3 +1467,83 @@ elif menu == "5. Pengaturan Master (Vendor, Visual & Pejabat)":
             st.success("Master Pejabat berhasil disimpan ke file Excel!")
             st.rerun()
 
+elif menu == "6. Monitoring Visual OOH (Event)":
+    st.title("📺 Monitoring Visual OOH Terpasang — Event")
+    st.caption("Menampilkan titik OOH yang memiliki brand event aktif.")
+
+    if "Master Brand Event" not in df.columns:
+        st.error("Kolom 'Master Brand Event' tidak ditemukan di data master.")
+    else:
+        brand_event = df["Master Brand Event"].astype("string").str.strip()
+        event_mask = (
+            brand_event.notna()
+            & ~brand_event.str.lower().isin(["", "-", "nan", "none", "<na>"])
+        )
+        df_event = df.loc[event_mask].copy()
+
+        if df_event.empty:
+            st.info("Belum ada visual event yang sedang terpasang.")
+        else:
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                kota_opts = sorted(df_event["Kota"].dropna().astype(str).unique())
+                selected_kota_event = st.selectbox(
+                    "Filter Kota", ["Semua Kota"] + kota_opts
+                )
+
+            with col2:
+                vendor_opts_event = sorted(
+                    df_event["Nama Vendor"].dropna().astype(str).unique()
+                )
+                selected_vendor_event = st.selectbox(
+                    "Filter Vendor", ["Semua Vendor"] + vendor_opts_event
+                )
+
+            with col3:
+                brand_opts_event = sorted(brand_event.loc[event_mask].dropna().unique())
+                selected_brand_event = st.selectbox(
+                    "Filter Brand Event", ["Semua Brand"] + brand_opts_event
+                )
+
+            if selected_kota_event != "Semua Kota":
+                df_event = df_event[
+                    df_event["Kota"].astype(str) == selected_kota_event
+                ]
+
+            if selected_vendor_event != "Semua Vendor":
+                df_event = df_event[
+                    df_event["Nama Vendor"].astype(str) == selected_vendor_event
+                ]
+
+            if selected_brand_event != "Semua Brand":
+                df_event = df_event[
+                    df_event["Master Brand Event"].astype("string").str.strip()
+                    == selected_brand_event
+                ]
+
+            st.metric("Jumlah Titik dengan Event Aktif", f"{len(df_event)} titik")
+
+            columns_to_show = [
+                "Kota", "Zona", "Sektor", "ID OOH", "Nama Vendor",
+                "Jenis OOH", "Ukuran", "Jumlah Muka", "Lokasi",
+                "Master Brand Event", "Versi event", "Status Kontrak",
+            ]
+            visible_columns = [
+                column for column in columns_to_show if column in df_event.columns
+            ]
+
+            event_view = df_event[visible_columns].rename(
+                columns={
+                    "Master Brand Event": "Brand Event Terpasang",
+                    "Versi event": "Versi Event Terpasang",
+                }
+            )
+
+            st.dataframe(event_view, use_container_width=True, hide_index=True)
+            st.download_button(
+                "📥 Unduh daftar event (CSV)",
+                data=event_view.to_csv(index=False).encode("utf-8-sig"),
+                file_name="monitoring_visual_event_ooh.csv",
+                mime="text/csv",
+            )
