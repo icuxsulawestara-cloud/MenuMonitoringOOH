@@ -1239,6 +1239,13 @@ elif menu == "3. Penggantian Brand & Visual":
         if st.session_state.get("email_batch_cleared", False):
             df_log_source = pd.DataFrame(columns=df_log_source.columns)
 
+        if "ID OOH" in df_log_source.columns:
+            id_ooh = df_log_source["ID OOH"].astype("string").str.strip()
+            df_log_source = df_log_source[
+                id_ooh.notna() & ~id_ooh.str.lower().isin(["", "nan", "none", "<na>"])
+            ].copy()
+
+        
         col_hdr1, col_hdr2 = st.columns(2)
         with col_hdr1:
             default_tgl_pasang = now_wib().strftime("%d/%m/%Y")
