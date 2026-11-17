@@ -1305,17 +1305,18 @@ elif menu == "3. Penggantian Brand & Visual":
 
                 ket_str = str(item.get("Keterangan / PIC", ""))
                 if "[Event]" in ket_str:
-                    brand_lama = clean_str(item.get("Brand Event Lama") or item.get("Brand Muka 1 Lama"), "-").upper()
-                    versi_lama = clean_str(item.get("Versi Event Lama") or item.get("Versi Muka 1 Lama"), "-")
+                    brand_lama = clean_str(item.get("Brand Event Lama"), "")
+                    if brand_lama in ["", "-"]:
+                        brand_lama = clean_str(item.get("Brand Muka 1 Lama"), "-")
+                    brand_lama = brand_lama.upper()
+
+                    versi_lama = clean_str(item.get("Versi Event Lama"), "")
+                    if versi_lama in ["", "-"]:
+                        versi_lama = clean_str(item.get("Versi Muka 1 Lama"), "-")
+
                     brand_baru = clean_str(item.get("Brand Event Baru"), "-").upper()
                     versi_baru = clean_str(item.get("Versi Event Baru"), "-")
                     ket_lokasi = f"{item['Lokasi']} (Event)"
-                elif "[Selesai Event]" in ket_str:
-                    brand_lama = clean_str(item.get("Brand Event Lama"), "-").upper()
-                    versi_lama = clean_str(item.get("Versi Event Lama"), "-")
-                    brand_baru = clean_str(item.get("Brand Muka 1 Baru"), "-").upper()
-                    versi_baru = clean_str(item.get("Versi Muka 1 Baru"), "-")
-                    ket_lokasi = f"{item['Lokasi']} (Selesai Event)"
                 else:
                     brand_lama = clean_str(item.get("Brand Muka 1 Lama"), "-").upper()
                     versi_lama = clean_str(item.get("Versi Muka 1 Lama"), "-")
