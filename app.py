@@ -1362,9 +1362,6 @@ elif menu == "3. Penggantian Brand & Visual":
                 st.info("ℹ️ Tidak ada data penggantian visual yang valid untuk filter vendor & tanggal rencana order ini.")
             else:
                 df_visual_table = pd.DataFrame(rows_formatted)
-                st.dataframe(df_visual_table, use_container_width=True, hide_index=True)
-
-                df_visual_table = pd.DataFrame(rows_formatted)
 
                 brand_color_palette = [
                     ("#DBEAFE", "#1E3A8A"),
@@ -1398,7 +1395,7 @@ elif menu == "3. Penggantian Brand & Visual":
                     column for column in ["Brand", "Brand "]
                     if column in df_visual_table.columns
                 ]
-                styled_visual_table = df_visual_table.style.applymap(
+                styled_visual_table = df_visual_table.style.map(
                     style_brand_cell,
                     subset=brand_columns,
                 )
@@ -1407,7 +1404,7 @@ elif menu == "3. Penggantian Brand & Visual":
                     styled_visual_table,
                     use_container_width=True,
                     hide_index=True,
-                )                
+                )   
 
                 png_bytes = generate_ooh_replacement_png(
                     df_table=df_visual_table,
