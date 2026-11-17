@@ -18,6 +18,14 @@ COLUMNS_MASTER = [
     "Master Brand Event", "Versi event"
 ]
 
+# Nama lama yang pernah dipakai oleh workbook atau antarmuka. Data internal
+# diseragamkan ke nama kolom COLUMNS_MASTER, lalu alias UI disediakan saat load.
+MASTER_COLUMN_ALIASES = {
+    "Jumlah Muka": ["Total Muka"],
+    "Master Brand Muka 1": ["Mother Brand Muka 1"],
+    "Master Brand Muka 2": ["Mother Brand Muka 2"],
+}
+
 COLUMNS_LOG = [
     "Tanggal Update", "ID OOH", "Kota", "Lokasi", "Nama Vendor",
     "Tgl Rencana Order", "Tgl Rencana Ganti",
@@ -50,20 +58,38 @@ def load_master_data() -> pd.DataFrame:
     ensure_storage()
     if not os.path.exists(MASTER_FILE):
         return pd.DataFrame(columns=COLUMNS_MASTER)
-    
+
     df = pd.read_excel(MASTER_FILE)
     df.columns = [str(c).strip() for c in df.columns]
+
+    # Normalize legacy workbook headers to the canonical schema.
+    for canonical, aliases in MASTER_COLUMN_ALIASES.items():
+        for alias in aliases:
+            if alias in df.columns:
+                if canonical not in df.columns:
+                    df.rename(columns={alias: canonical}, inplace=True)
+                else:
+                    df[canonical] = df[canonical].combine_first(df[alias])
+                    df.drop(columns=[alias], inplace=True)
+
     if "Master Brand Event" not in df.columns and "Master Brand Event " in df.columns:
         df.rename(columns={"Master Brand Event ": "Master Brand Event"}, inplace=True)
 
     for col in COLUMNS_MASTER:
         if col not in df.columns:
             df[col] = None
-            
+
     df["Periode Kontak Awal"] = pd.to_datetime(df["Periode Kontak Awal"], errors="coerce")
     df["Periode Kontak Akhir"] = pd.to_datetime(df["Periode Kontak Akhir"], errors="coerce")
-    
-    return enrich_contract_metrics(df)
+
+    df = enrich_contract_metrics(df)
+
+    # Compatibility columns for existing app.py dashboard references. Writes
+    # still use only COLUMNS_MASTER, so the saved workbook stays canonical.
+    df["Total Muka"] = df["Jumlah Muka"]
+    df["Mother Brand Muka 1"] = df["Master Brand Muka 1"]
+    df["Mother Brand Muka 2"] = df["Master Brand Muka 2"]
+    return df
 
 def save_master_data(df: pd.DataFrame):
     ensure_storage()
@@ -94,7 +120,7 @@ def append_log_pergantian(log_entry: dict):
 def rollback_log_entry(log_row):
     id_ooh = str(log_row.get("ID OOH"))
     df_master = load_master_data()
-    
+
     text_cols = [
         "Master Brand Muka 1", "Master Brand Muka 2", "Versi Muka 1", "Versi Muka 2",
         "Master Brand Event", "Versi event", "Nama Vendor", "Kota", "Lokasi"
@@ -133,7 +159,7 @@ def get_effective_brand_version(row) -> dict:
     vev = row.get("Versi event")
     if pd.notna(bev) and str(bev).strip() not in ["", "-", "nan", "NONE", "None"]:
         return {"Brand": str(bev).strip(), "Version": str(vev).strip() if pd.notna(vev) else "-"}
-    
+
     bm1 = row.get("Master Brand Muka 1")
     vm1 = row.get("Versi Muka 1")
     return {"Brand": str(bm1).strip() if pd.notna(bm1) else "-", "Version": str(vm1).strip() if pd.notna(vm1) else "-"}
@@ -196,7 +222,7 @@ def load_extra_masters():
             df_v = pd.read_excel(EXCEL_PATH, sheet_name="Master Vendor")
         except Exception:
             df_v = pd.DataFrame(columns=["Nama Vendor", "Email Vendor"])
-        
+
         try:
             df_vis = pd.read_excel(EXCEL_PATH, sheet_name="Master Visual OOH")
         except Exception:
@@ -204,7 +230,7 @@ def load_extra_masters():
                 df_vis = pd.read_excel(EXCEL_PATH, sheet_name="Master Visual")
             except Exception:
                 df_vis = pd.DataFrame(columns=["Master Brand", "Versi / Visual"])
-        
+
         try:
             df_p = pd.read_excel(EXCEL_PATH, sheet_name="Master Email Pejabat")
         except Exception:
@@ -216,7 +242,7 @@ def load_extra_masters():
         df_v = pd.DataFrame(columns=["Nama Vendor", "Email Vendor"])
         df_vis = pd.DataFrame(columns=["Master Brand", "Versi / Visual"])
         df_p = pd.DataFrame(columns=["CC Email"])
-        
+
     return df_v, df_vis, df_p
 
 def save_extra_masters(df_v, df_vis, df_p):
