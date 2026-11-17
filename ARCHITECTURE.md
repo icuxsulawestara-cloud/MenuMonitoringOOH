@@ -5,39 +5,30 @@ Aplikasi ini adalah sistem berbasis Streamlit untuk mengelola aset media **Out o
 ## Diagram arsitektur
 
 ```text
-┌──────────────┐
-│   Pengguna   │
-└──────┬───────┘
-       │ menggunakan aplikasi
-       ▼
-┌──────────────────────────────────────────┐
-│ app.py — Antarmuka Streamlit             │
-│                                          │
-│ • Dashboard, grafik, peta, dan monitoring│
-│ • Form master data OOH                   │
-│ • Pergantian brand/visual dan riwayat    │
-│ • Laporan kontrak dan ekspor Excel       │
-│ • Kontrol backup/load Google Sheets      │
-└───────────┬──────────────────┬───────────┘
-            │                  │
-            ▼                  ▼
-┌─────────────────────┐  ┌────────────────────────┐
-│ data_manager.py     │  │ Google Apps Script     │
-│                     │  │ melalui HTTP POST      │
-│ • Baca/tulis Excel  │  │ Backup dan pemulihan   │
-│ • Hitung kontrak    │  │ data Google Sheets     │
-│ • Kelola riwayat    │  └────────────────────────┘
-│ • Rollback perubahan│
-└──────────┬──────────┘
-           ▼
-┌──────────────────────────┐   ┌───────────────────┐
-│ data/*.xlsx              │   │ File GeoJSON      │
-│ Penyimpanan lokal        │   │ Batas wilayah peta│
-│ • Master OOH             │   └───────────────────┘
-│ • Riwayat pergantian     │
-│ • Master vendor/visual/  │
-│   pejabat                │
-└──────────────────────────┘
+Pengguna
+   │
+   ▼
+app.py — Antarmuka Streamlit
+   ├── Dashboard, peta, grafik, dan tabel monitoring
+   ├── Form tambah/edit/hapus data OOH
+   ├── Penggantian brand/visual dan riwayat
+   ├── Laporan kontrak dan ekspor Excel
+   └── Sinkronisasi Google Sheets
+          │
+          ├── data_manager.py — Logika dan akses data
+          │      ├── Membaca/menyimpan data Excel
+          │      ├── Menghitung metrik dan status kontrak
+          │      └── Mengelola riwayat pergantian dan rollback
+          │
+          ├── data/*.xlsx — Penyimpanan lokal
+          │      ├── Master OOH
+          │      ├── Riwayat pergantian
+          │      └── Master vendor, visual, dan pejabat
+          │
+          ├── Google Apps Script — Backup dan pemulihan data
+          │      └── Terhubung melalui HTTP POST
+          │
+          └── File GeoJSON — Batas wilayah untuk peta
 ```
 
 ## Komponen
