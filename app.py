@@ -1045,7 +1045,8 @@ elif menu == "3. Penggantian Brand & Visual":
                     material = df_available_promo_materials.iloc[material_index]
                     return (
                         f"{material['Material']} | {material['Brand']} | "
-                        f"{material['Version']} | Stok: {material['Total']} {material['UOM']}"
+                        f"{material['Version']} | Available: "
+                        f"{material['Available']} {material['UOM']}"
                     )
 
                 def apply_promo_material_selection(
