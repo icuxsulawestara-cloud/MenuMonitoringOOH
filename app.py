@@ -462,23 +462,11 @@ st.sidebar.subheader("☁️ Backup & Load Google Sheet")
 with st.sidebar.expander("Pengaturan & Sinkronisasi Sheet", expanded=False):
     st.caption("✅ Menggunakan koneksi Web App Google Apps Script.")
 
-    col_gs1, col_gs2 = st.columns(2)
+    col_gs1 = st.columns()
     with col_gs1:
-        btn_backup_gs = st.button("⬆️ Backup", use_container_width=True)
-    with col_gs2:
         btn_load_gs = st.button("⬇️ Load", use_container_width=True)
 
-    if btn_backup_gs:
-        try:
-            with st.spinner("Mem-backup ke Google Sheet..."):
-                success, msg = backup_to_google_sheets()
-                if success:
-                    st.success("✅ " + msg)
-                else:
-                    st.error("❌ " + msg)
-        except Exception as e:
-            st.error(f"Gagal backup: {e}")
-
+    
     if btn_load_gs:
         try:
             with st.spinner("Memuat dari Google Sheet..."):
