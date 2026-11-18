@@ -1245,17 +1245,18 @@ elif menu == "3. Penggantian Brand & Visual":
         if "email_batch_cleared" not in st.session_state:
             st.session_state["email_batch_cleared"] = False
 
-        df_log_source = load_log_data()
+        df_log_history = load_log_data()
+        if "ID OOH" in df_log_history.columns:
+            history_ids = df_log_history["ID OOH"].astype("string").str.strip()
+            df_log_history = df_log_history[
+                history_ids.notna()
+                & ~history_ids.str.lower().isin(["", "nan", "none", "<na>"])
+            ].copy()
+
+        df_log_source = df_log_history.copy()
         if st.session_state.get("email_batch_cleared", False):
             df_log_source = pd.DataFrame(columns=df_log_source.columns)
 
-        if "ID OOH" in df_log_source.columns:
-            id_ooh = df_log_source["ID OOH"].astype("string").str.strip()
-            df_log_source = df_log_source[
-                id_ooh.notna() & ~id_ooh.str.lower().isin(["", "nan", "none", "<na>"])
-            ].copy()
-
-        
         col_hdr1, col_hdr2 = st.columns(2)
         with col_hdr1:
             default_tgl_pasang = now_wib().strftime("%d/%m/%Y")
@@ -1456,6 +1457,34 @@ elif menu == "3. Penggantian Brand & Visual":
                         st.session_state["email_batch_cleared"] = True
                         st.success("✅ Antrean kirim email berhasil dikosongkan!")
                         st.rerun()
+
+        st.divider()
+        with st.expander("📜 Riwayat Lengkap Penggantian Visual OOH", expanded=False):
+            if df_log_history.empty:
+                st.info("Belum ada riwayat pergantian visual OOH.")
+            else:
+                history_columns = [
+                    "Tanggal Update", "ID OOH", "Kota", "Lokasi", "Nama Vendor",
+                    "Tgl Rencana Order", "Tgl Rencana Ganti",
+                    "Brand Muka 1 Lama", "Brand Muka 1 Baru",
+                    "Versi Muka 1 Lama", "Versi Muka 1 Baru",
+                    "Brand Muka 2 Lama", "Brand Muka 2 Baru",
+                    "Versi Muka 2 Lama", "Versi Muka 2 Baru",
+                    "Brand Event Lama", "Brand Event Baru",
+                    "Versi Event Lama", "Versi Event Baru", "Keterangan / PIC",
+                ]
+                visible_history_columns = [
+                    column for column in history_columns if column in df_log_history.columns
+                ]
+                visible_history_columns.extend(
+                    column for column in df_log_history.columns
+                    if column not in visible_history_columns
+                )
+                st.dataframe(
+                    df_log_history[visible_history_columns],
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
 # ==============================================================================
 # MENU 4: REPORT KONTRAK & WARNING
