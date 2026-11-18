@@ -1626,7 +1626,7 @@ elif menu == "3. Penggantian Brand & Visual":
                             "\n\n"
                             
                             "Dear Mas Basori, Tolong dibuatkan SPK nya\n\n"
-                            "\n\n""
+                            "\n\n"
                             "Regards,\n\n"
                             "Eka Sulawestara"
                         )
