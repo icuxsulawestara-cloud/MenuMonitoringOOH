@@ -1170,6 +1170,14 @@ elif menu == "3. Penggantian Brand & Visual":
                         mode_record = "Event"
                     else:
                         st.markdown("#### Selesaikan Event dan Kembali ke Visual Reguler")
+                        st.info(
+                            f"Event yang sedang terpasang: **{event_brand_now}** "
+                            f"— Versi: **{event_versi_now}**"
+                        )
+                        st.caption(
+                            "Brand dan versi reguler di bawah diambil dari data reguler "
+                            "yang tersimpan sebelum event."
+                        )
 
                         default_reg_brand = clean_str(row.get("Master Brand Muka 1"), "-")
                         default_reg_versi = clean_str(row.get("Versi Muka 1"), "-")
