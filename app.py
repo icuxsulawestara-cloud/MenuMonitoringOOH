@@ -994,10 +994,9 @@ elif menu == "3. Penggantian Brand & Visual":
             jenis_pergantian = st.radio(
                 "Pilih Jenis Penggantian Visual:",
                 [
-                    "1. Penggantian Reguler (Muka 1 & Muka 2)",
-                    "2. Penggantian Event (Temporary / Khusus Event)",
-                    "3. Penggantian Selesai Event ke Reguler",
-                    "4. Penggantian Visual Massal (Banyak Titik)",
+                    "1. Penggantian Reguler",
+                    "2. Event & Penyelesaian",
+                    "3. Penggantian Massal",
                 ],
                 horizontal=True
             )
@@ -1036,43 +1035,53 @@ elif menu == "3. Penggantian Brand & Visual":
                     
                     mode_record = "Reguler"
 
-                elif "2. Penggantian Event" in jenis_pergantian:
-                    st.markdown("#### Form Penggantian Master Brand Event (Temporary) - Muka 1")
-                    
-                    st.markdown("##### 📌 Muka 1 (Event)")
-                    st.text_input("Master Brand Muka 1 Lama (Saat Ini)", value=m1_brand_now, disabled=True, key="ev_m1_lama")
-                    new_brand_1 = st.text_input("Master Brand Muka 1 Event Baru", value="", placeholder="Ketik nama brand event baru...", key="ev_b1_baru")
-                    
-                    st.text_input("Versi Muka 1 Lama (Saat Ini)", value=m1_versi_now, disabled=True, key="ev_v1_lama")
-                    new_versi_1 = st.text_input("Versi Muka 1 Event Baru", value="", placeholder="Ketik versi event baru...", key="ev_v1_baru")
-
-                    new_brand_2 = "-"
-                    new_versi_2 = "-"
-                    mode_record = "Event"
-
-                elif "3. Penggantian Selesai Event" in jenis_pergantian:
-                    st.markdown("#### Form Penggantian Selesai Event ke Versi Reguler")
-                    
-                    default_reg_brand = clean_str(row.get("Master Brand Muka 1"), "-")
-                    default_reg_versi = clean_str(row.get("Versi Muka 1"), "-")
-
-                    st.markdown("##### 📌 Muka 1 (Kembali ke Reguler - Input Manual)")
-                    
-                    new_brand_1 = st.text_input(
-                        "Master Brand Reguler Baru (Pengganti Event)", 
-                        value=default_reg_brand if default_reg_brand != "-" else "",
-                        placeholder="Ketik master brand reguler..."
-                    )
-                    
-                    new_versi_1 = st.text_input(
-                        "Versi / Visual Reguler Baru", 
-                        value=default_reg_versi if default_reg_versi != "-" else "",
-                        placeholder="Ketik versi reguler..."
+                elif "2. Event & Penyelesaian" in jenis_pergantian:
+                    jenis_event = st.radio(
+                        "Pilih Tindakan Event:",
+                        [
+                            "Pasang / Ganti Brand Event",
+                            "Selesaikan Event",
+                        ],
+                        horizontal=True,
+                        key="jenis_tindakan_event"
                     )
 
-                    new_brand_2 = "-"
-                    new_versi_2 = "-"
-                    mode_record = "Selesai Event"
+                    if jenis_event == "Pasang / Ganti Brand Event":
+                        st.markdown("#### Pasang atau Ganti Brand Event (Temporary)")
+
+                        st.markdown("##### 📌 Muka 1 (Event)")
+                        st.text_input("Master Brand Muka 1 Lama (Saat Ini)", value=m1_brand_now, disabled=True, key="ev_m1_lama")
+                        new_brand_1 = st.text_input("Master Brand Muka 1 Event Baru", value="", placeholder="Ketik nama brand event baru...", key="ev_b1_baru")
+
+                        st.text_input("Versi Muka 1 Lama (Saat Ini)", value=m1_versi_now, disabled=True, key="ev_v1_lama")
+                        new_versi_1 = st.text_input("Versi Muka 1 Event Baru", value="", placeholder="Ketik versi event baru...", key="ev_v1_baru")
+
+                        new_brand_2 = "-"
+                        new_versi_2 = "-"
+                        mode_record = "Event"
+                    else:
+                        st.markdown("#### Selesaikan Event dan Kembali ke Visual Reguler")
+
+                        default_reg_brand = clean_str(row.get("Master Brand Muka 1"), "-")
+                        default_reg_versi = clean_str(row.get("Versi Muka 1"), "-")
+
+                        st.markdown("##### 📌 Muka 1 (Kembali ke Reguler)")
+
+                        new_brand_1 = st.text_input(
+                            "Master Brand Reguler Baru (Pengganti Event)",
+                            value=default_reg_brand if default_reg_brand != "-" else "",
+                            placeholder="Ketik master brand reguler..."
+                        )
+
+                        new_versi_1 = st.text_input(
+                            "Versi / Visual Reguler Baru",
+                            value=default_reg_versi if default_reg_versi != "-" else "",
+                            placeholder="Ketik versi reguler..."
+                        )
+
+                        new_brand_2 = "-"
+                        new_versi_2 = "-"
+                        mode_record = "Selesai Event"
                     
                 else:
                     st.markdown("#### Form Penggantian Visual Massal (Semua Titik Terpilih)")
