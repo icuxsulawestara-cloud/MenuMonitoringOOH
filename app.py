@@ -516,7 +516,8 @@ if menu == "1. Dashboard & Monitoring OOH":
     c5.metric("Perlu Renewal (≤ 90 Hari)", f"{jml_kritis + jml_warning} Titik")
     st.divider()
 
-    st.subheader("Distribusi Jumlah Muka OOH berdasarkan Mother Brand")
+    st.subheader("Distribusi Jumlah Muka OOH berdasarkan Mother Brand (Gabungan Muka 1 + Muka 2)")
+    st.caption("Setiap brand pada Muka 1 dan Muka 2 dihitung sebagai satu muka OOH.")
 
     brand_faces = pd.concat(
         [
@@ -1862,17 +1863,15 @@ elif menu == "7. List Materi Promosi":
         available_values = pd.to_numeric(
             df_promo_materials["Available"], errors="coerce"
         ).fillna(0)
-        available_slider_max = max(int(available_values.max()), 1)
+        available_options = ["Semua"] + sorted(available_values.unique().tolist())
         available_filter_key = "promo_list_available_filter"
-        current_available_range = st.session_state.get(available_filter_key)
-        if current_available_range and current_available_range[1] > available_slider_max:
-            st.session_state[available_filter_key] = (0, available_slider_max)
+        if st.session_state.get(available_filter_key) not in available_options:
+            st.session_state[available_filter_key] = "Semua"
         with col_available:
-            available_min, available_max = st.slider(
+            selected_available = st.selectbox(
                 "Filter Available",
-                min_value=0,
-                max_value=available_slider_max,
-                value=(0, available_slider_max),
+                available_options,
+                format_func=lambda value: "Semua" if value == "Semua" else f"{value:g}",
                 key=available_filter_key,
             )
 
@@ -1883,9 +1882,8 @@ elif menu == "7. List Materi Promosi":
         filtered_available = pd.to_numeric(
             df_promo_list["Available"], errors="coerce"
         ).fillna(0)
-        df_promo_list = df_promo_list[
-            filtered_available.between(available_min, available_max)
-        ]
+        if selected_available != "Semua":
+            df_promo_list = df_promo_list[filtered_available == selected_available]
 
         st.metric("Jumlah Materi", len(df_promo_list))
         st.dataframe(df_promo_list, use_container_width=True, hide_index=True)
