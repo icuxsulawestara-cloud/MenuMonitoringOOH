@@ -391,6 +391,9 @@ def generate_ooh_replacement_png(
 df = load_master_data()
 df_vendor_master, df_visual_master, df_pejabat_master = load_extra_masters()
 df_promo_materials = load_promo_materials()
+df_available_promo_materials = df_promo_materials[
+    pd.to_numeric(df_promo_materials["Available"], errors="coerce").fillna(0) > 0
+].reset_index(drop=True)
 
 brand_choices = []
 if not df_visual_master.empty:
@@ -405,7 +408,7 @@ if not brand_choices:
     brand_choices = ["-"]
 
 promo_brand_choices = (
-    df_promo_materials["Brand"]
+    df_available_promo_materials["Brand"]
     .dropna()
     .astype(str)
     .str.strip()
@@ -1039,7 +1042,7 @@ elif menu == "3. Penggantian Brand & Visual":
                 def format_promo_material_option(material_index):
                     if material_index is None:
                         return "Tidak menggunakan materi promosi"
-                    material = df_promo_materials.iloc[material_index]
+                    material = df_available_promo_materials.iloc[material_index]
                     return (
                         f"{material['Material']} | {material['Brand']} | "
                         f"{material['Version']} | Stok: {material['Total']} {material['UOM']}"
@@ -1058,7 +1061,7 @@ elif menu == "3. Penggantian Brand & Visual":
                         st.session_state[version_key] = default_version
                         return
 
-                    material = df_promo_materials.iloc[material_index]
+                    material = df_available_promo_materials.iloc[material_index]
                     st.session_state[brand_key] = clean_str(material["Brand"], default_brand)
                     st.session_state[version_key] = clean_str(material["Version"], "")
 
@@ -1082,8 +1085,8 @@ elif menu == "3. Penggantian Brand & Visual":
 
                     with container:
                         st.selectbox(
-                            f"Isi Brand dan Versi {face_label} dari Materi Promosi (opsional)",
-                            options=[None] + list(range(len(df_promo_materials))),
+                            f"Isi Brand dan Versi {face_label} dari Materi Promosi Tersedia (opsional)",
+                            options=[None] + list(range(len(df_available_promo_materials))),
                             format_func=format_promo_material_option,
                             key=selection_key,
                             on_change=apply_promo_material_selection,
