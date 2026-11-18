@@ -1615,6 +1615,9 @@ Eka Sulawestara"""
                     )
 
                     st.write("")
+
+                    col_d1, col_d2 = st.columns(2)
+                with col_d1:
                     
                     btn_backup_gs = st.button("💾 Save ke Sheet", use_container_width=True, key="btn_b_sheet_only")
 
@@ -1628,32 +1631,18 @@ Eka Sulawestara"""
                                     st.error("❌ " + msg)
                         except Exception as e:
                             st.error(f"Gagal backup: {e}")
+
+                with col_d2:
                     if st.button("🗑️ Reset / Kosongkan Antrean Email Ini", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
                         st.session_state["email_batch_cleared"] = True
                         st.success("✅ Antrean kirim email berhasil dikosongkan!")
                         st.rerun()
+                    
+                    
+                            
+                    
 
-                # ==========================================================
-                # TOMBOL BACKUP SAJA DI BAWAH SINI
-                # ==========================================================
-                st.divider()
-                st.subheader("💾 Save Data")
-                
-                with st.expander("Pengaturan 💾 Google Sheet", expanded=False):
-                    st.caption("✅ Mengirim dan menimpa data master ke Google Sheet.")
-
-                    btn_backup_gs = st.button("💾 Save ke Sheet", use_container_width=True, key="btn_b_sheet_only")
-
-                    if btn_backup_gs:
-                        try:
-                            with st.spinner("Save ke Google Sheet..."):
-                                success, msg = backup_to_google_sheets()
-                                if success:
-                                    st.success("✅ " + msg)
-                                else:
-                                    st.error("❌ " + msg)
-                        except Exception as e:
-                            st.error(f"Gagal backup: {e}")
+               
         st.divider()
         with st.expander("📜 Riwayat Lengkap Penggantian Visual OOH", expanded=False):
             if df_log_history.empty:
