@@ -17,6 +17,7 @@ from data_manager import (
     load_extra_masters,
     load_log_data,
     load_master_data,
+    load_promo_materials,
     now_wib,
     rollback_log_entry,
     save_extra_masters,
@@ -387,6 +388,7 @@ def generate_ooh_replacement_png(
 
 df = load_master_data()
 df_vendor_master, df_visual_master, df_pejabat_master = load_extra_masters()
+df_promo_materials = load_promo_materials()
 
 brand_choices = []
 if not df_visual_master.empty:
@@ -399,6 +401,17 @@ if not df_visual_master.empty:
 
 if not brand_choices:
     brand_choices = ["-"]
+
+promo_brand_choices = (
+    df_promo_materials["Brand"]
+    .dropna()
+    .astype(str)
+    .str.strip()
+    .loc[lambda values: values.ne("")]
+    .unique()
+    .tolist()
+)
+replacement_brand_choices = sorted(set(brand_choices + promo_brand_choices))
 
 # ==============================================================================
 # SIDEBAR: KONTROL PANEL
@@ -415,6 +428,7 @@ menu = st.sidebar.radio(
         "4. Report Kontrak & Warning",
         "5. Pengaturan Master (Vendor, Visual & Pejabat)",
         "6. Monitoring Visual OOH (Event)",
+        "7. List Materi Promosi",
     ],
 )
 
@@ -1001,6 +1015,84 @@ elif menu == "3. Penggantian Brand & Visual":
                 horizontal=True
             )
 
+            promo_brand_keys = {}
+            promo_version_keys = {}
+            if (
+                "1. Penggantian Reguler" in jenis_pergantian
+                or "3. Penggantian Massal" in jenis_pergantian
+            ):
+                promo_mode_key = "regular" if "1. Penggantian Reguler" in jenis_pergantian else "massal"
+                face_defaults = {
+                    "m1": (
+                        m1_brand_now if promo_mode_key == "regular" else replacement_brand_choices[0],
+                        m1_versi_now if promo_mode_key == "regular" and m1_versi_now != "-" else "",
+                    ),
+                    "m2": (
+                        m2_brand_now if promo_mode_key == "regular" else "-",
+                        m2_versi_now if promo_mode_key == "regular" and m2_versi_now != "-" else "",
+                    ),
+                }
+
+                def format_promo_material_option(material_index):
+                    if material_index is None:
+                        return "Tidak menggunakan materi promosi"
+                    material = df_promo_materials.iloc[material_index]
+                    return (
+                        f"{material['Material']} | {material['Brand']} | "
+                        f"{material['Version']} | Stok: {material['Total']} {material['UOM']}"
+                    )
+
+                def apply_promo_material_selection(
+                    selection_key,
+                    brand_key,
+                    version_key,
+                    default_brand,
+                    default_version,
+                ):
+                    material_index = st.session_state[selection_key]
+                    if material_index is None:
+                        st.session_state[brand_key] = default_brand
+                        st.session_state[version_key] = default_version
+                        return
+
+                    material = df_promo_materials.iloc[material_index]
+                    st.session_state[brand_key] = clean_str(material["Brand"], default_brand)
+                    st.session_state[version_key] = clean_str(material["Version"], "")
+
+                promo_columns = st.columns(2)
+                for face, face_label, container in zip(
+                    ("m1", "m2"),
+                    ("Muka 1", "Muka 2"),
+                    promo_columns,
+                ):
+                    default_brand, default_version = face_defaults[face]
+                    selection_key = f"promo_material_{promo_mode_key}_{face}_{row['ID OOH']}"
+                    brand_key = f"promo_brand_{promo_mode_key}_{face}_{row['ID OOH']}"
+                    version_key = f"promo_version_{promo_mode_key}_{face}_{row['ID OOH']}"
+                    promo_brand_keys[face] = brand_key
+                    promo_version_keys[face] = version_key
+
+                    if brand_key not in st.session_state:
+                        st.session_state[brand_key] = default_brand
+                    if version_key not in st.session_state:
+                        st.session_state[version_key] = default_version
+
+                    with container:
+                        st.selectbox(
+                            f"Isi Brand dan Versi {face_label} dari Materi Promosi (opsional)",
+                            options=[None] + list(range(len(df_promo_materials))),
+                            format_func=format_promo_material_option,
+                            key=selection_key,
+                            on_change=apply_promo_material_selection,
+                            args=(
+                                selection_key,
+                                brand_key,
+                                version_key,
+                                default_brand,
+                                default_version,
+                            ),
+                        )
+
             with st.form("form_ganti_visual"):
                 col_t1, col_t2 = st.columns(2)
                 with col_t1:
@@ -1017,21 +1109,38 @@ elif menu == "3. Penggantian Brand & Visual":
                     with col_m1:
                         st.markdown("##### 📌 Muka 1")
                         st.text_input("Master Brand Muka 1 Lama (Saat Ini)", value=m1_brand_now, disabled=True)
-                        default_idx_m1 = brand_choices.index(m1_brand_now) if m1_brand_now in brand_choices else 0
-                        new_brand_1 = st.selectbox("Master Brand Muka 1 Baru", brand_choices, index=default_idx_m1)
+                        m1_brand_options = sorted(set(replacement_brand_choices + [m1_brand_now]))
+                        if st.session_state[promo_brand_keys["m1"]] not in m1_brand_options:
+                            st.session_state[promo_brand_keys["m1"]] = m1_brand_now
+                        new_brand_1 = st.selectbox(
+                            "Master Brand Muka 1 Baru",
+                            m1_brand_options,
+                            key=promo_brand_keys["m1"],
+                        )
                         
                         st.text_input("Versi / Visual Muka 1 Lama (Saat Ini)", value=m1_versi_now, disabled=True)
-                        new_versi_1 = st.text_input("Versi / Visual Muka 1 Baru", value=m1_versi_now if m1_versi_now != "-" else "")
+                        new_versi_1 = st.text_input(
+                            "Versi / Visual Muka 1 Baru",
+                            key=promo_version_keys["m1"],
+                        )
 
                     with col_m2:
                         st.markdown("##### 📌 Muka 2")
                         st.text_input("Master Brand Muka 2 Lama (Saat Ini)", value=m2_brand_now, disabled=True)
-                        m2_choices = ["-"] + brand_choices
-                        default_idx_m2 = m2_choices.index(m2_brand_now) if m2_brand_now in m2_choices else 0
-                        new_brand_2 = st.selectbox("Master Brand Muka 2 Baru", m2_choices, index=default_idx_m2)
+                        m2_choices = sorted(set(["-"] + replacement_brand_choices + [m2_brand_now]))
+                        if st.session_state[promo_brand_keys["m2"]] not in m2_choices:
+                            st.session_state[promo_brand_keys["m2"]] = m2_brand_now
+                        new_brand_2 = st.selectbox(
+                            "Master Brand Muka 2 Baru",
+                            m2_choices,
+                            key=promo_brand_keys["m2"],
+                        )
                         
                         st.text_input("Versi / Visual Muka 2 Lama (Saat Ini)", value=m2_versi_now, disabled=True)
-                        new_versi_2 = st.text_input("Versi / Visual Muka 2 Baru", value=m2_versi_now if m2_versi_now != "-" else "")
+                        new_versi_2 = st.text_input(
+                            "Versi / Visual Muka 2 Baru",
+                            key=promo_version_keys["m2"],
+                        )
                     
                     mode_record = "Reguler"
 
@@ -1095,11 +1204,31 @@ elif menu == "3. Penggantian Brand & Visual":
                         st.warning("Pilih minimal satu titik OOH.")
                     col_mass_1, col_mass_2 = st.columns(2)
                     with col_mass_1:
-                        mass_brand_1 = st.selectbox("Master Brand Muka 1 Baru", brand_choices, index=0)
-                        mass_versi_1 = st.text_input("Versi / Visual Muka 1 Baru", value="")
+                        mass_brand_options = sorted(set(replacement_brand_choices + [m1_brand_now]))
+                        if st.session_state[promo_brand_keys["m1"]] not in mass_brand_options:
+                            st.session_state[promo_brand_keys["m1"]] = replacement_brand_choices[0]
+                        mass_brand_1 = st.selectbox(
+                            "Master Brand Muka 1 Baru",
+                            mass_brand_options,
+                            key=promo_brand_keys["m1"],
+                        )
+                        mass_versi_1 = st.text_input(
+                            "Versi / Visual Muka 1 Baru",
+                            key=promo_version_keys["m1"],
+                        )
                     with col_mass_2:
-                        mass_brand_2 = st.selectbox("Master Brand Muka 2 Baru", ["-"] + brand_choices, index=0)
-                        mass_versi_2 = st.text_input("Versi / Visual Muka 2 Baru", value="")
+                        mass_brand_options_2 = sorted(set(["-"] + replacement_brand_choices + [m2_brand_now]))
+                        if st.session_state[promo_brand_keys["m2"]] not in mass_brand_options_2:
+                            st.session_state[promo_brand_keys["m2"]] = "-"
+                        mass_brand_2 = st.selectbox(
+                            "Master Brand Muka 2 Baru",
+                            mass_brand_options_2,
+                            key=promo_brand_keys["m2"],
+                        )
+                        mass_versi_2 = st.text_input(
+                            "Versi / Visual Muka 2 Baru",
+                            key=promo_version_keys["m2"],
+                        )
                     mass_note = st.text_input("Catatan / Vendor / PIC", value="Penggantian masal visual")
                     mass_confirm = st.checkbox("Saya yakin ingin mengganti semua titik terpilih dengan nilai yang sama.")
                     new_brand_1 = mass_brand_1
@@ -1650,3 +1779,55 @@ elif menu == "6. Monitoring Visual OOH (Event)":
                 file_name="monitoring_visual_event_ooh.csv",
                 mime="text/csv",
             )
+
+elif menu == "7. List Materi Promosi":
+    st.title("List Materi Promosi")
+    st.caption(
+        "Daftar ini hanya memuat materi dengan nama Vinyl Billboard, Vinyl Baliho, "
+        "Vinyl PJU, atau Vinyl Midis."
+    )
+
+    if df_promo_materials.empty:
+        st.info("Tidak ada materi promosi yang sesuai dengan kategori tersebut.")
+    else:
+        col_material, col_brand = st.columns(2)
+        material_options = ["Semua Material"] + sorted(
+            df_promo_materials["Material"].dropna().astype(str).unique().tolist()
+        )
+        with col_material:
+            selected_material = st.selectbox(
+                "Filter Material",
+                material_options,
+                key="promo_list_material_filter",
+            )
+
+        df_promo_list = df_promo_materials.copy()
+        if selected_material != "Semua Material":
+            df_promo_list = df_promo_list[
+                df_promo_list["Material"].astype(str) == selected_material
+            ]
+
+        brand_options = ["Semua Brand"] + sorted(
+            df_promo_list["Brand"].dropna().astype(str).unique().tolist()
+        )
+        if st.session_state.get("promo_list_brand_filter") not in brand_options:
+            st.session_state["promo_list_brand_filter"] = "Semua Brand"
+        with col_brand:
+            selected_brand = st.selectbox(
+                "Filter Brand",
+                brand_options,
+                key="promo_list_brand_filter",
+            )
+        if selected_brand != "Semua Brand":
+            df_promo_list = df_promo_list[
+                df_promo_list["Brand"].astype(str) == selected_brand
+            ]
+
+        st.metric("Jumlah Materi", len(df_promo_list))
+        st.dataframe(df_promo_list, use_container_width=True, hide_index=True)
+        st.download_button(
+            "📥 Unduh List Materi Promosi (.xlsx)",
+            data=to_excel_bytes(df_promo_list),
+            file_name="List_Materi_Promosi.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )

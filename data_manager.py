@@ -9,6 +9,7 @@ VENDOR_FILE = "data/Master Vendor.xlsx"
 VISUAL_FILE = "data/Master Visual.xlsx"
 PEJABAT_FILE = "data/Master Pejabat.xlsx"
 EXCEL_PATH = "data/Master Vendor-Visual OOH-Email Pejabat.xlsx"
+PROMO_MATERIAL_FILE = "data/Materi Promosi.xlsx"
 
 COLUMNS_MASTER = [
     "No", "Kota", "Zona", "Sektor", "ID OOH", "Nama Vendor", "Jenis OOH",
@@ -244,6 +245,26 @@ def load_extra_masters():
         df_p = pd.DataFrame(columns=["CC Email"])
 
     return df_v, df_vis, df_p
+
+def load_promo_materials() -> pd.DataFrame:
+    df = pd.read_excel(PROMO_MATERIAL_FILE)
+    df.columns = [str(column).strip() for column in df.columns]
+
+    required_columns = ["Material", "Brand", "Version"]
+    missing_columns = [column for column in required_columns if column not in df.columns]
+    if missing_columns:
+        raise ValueError(
+            "File Materi Promosi tidak memiliki kolom wajib: "
+            + ", ".join(missing_columns)
+        )
+
+    material_filter = df["Material"].astype("string").str.contains(
+        r"Vinyl Billboard|Vinyl Baliho|Vinyl PJU|Vinyl midis",
+        case=False,
+        na=False,
+        regex=True,
+    )
+    return df.loc[material_filter].reset_index(drop=True)
 
 def save_extra_masters(df_v, df_vis, df_p):
     """Menyimpan kembali perubahan master data ke file Excel dengan multi-sheet."""

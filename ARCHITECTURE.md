@@ -33,9 +33,9 @@ app.py — Antarmuka Streamlit
 
 ## Komponen
 
-- **`app.py`** — Lapisan antarmuka dan alur aplikasi. Menyajikan lima menu: dashboard, pengelolaan master OOH, pergantian brand/visual, laporan kontrak, dan pengaturan master.
-- **`data_manager.py`** — Lapisan pengelolaan data. Membaca dan menyimpan berkas Excel, menghitung durasi serta status kontrak, mencatat pergantian, dan melakukan rollback riwayat.
-- **`data/*.xlsx`** — Penyimpanan lokal untuk master titik OOH, riwayat pergantian, serta data vendor, visual, dan pejabat.
+- **`app.py`** — Lapisan antarmuka dan alur aplikasi. Menyajikan dashboard, pengelolaan OOH, pergantian brand/visual, laporan kontrak, pengaturan master, monitoring event, dan daftar materi promosi.
+- **`data_manager.py`** — Lapisan pengelolaan data. Membaca dan menyimpan berkas Excel, menghitung durasi serta status kontrak, mencatat pergantian, dan memuat master materi promosi.
+- **`data/*.xlsx`** — Penyimpanan lokal untuk master titik OOH, riwayat pergantian, vendor/visual/pejabat, serta daftar materi promosi yang difilter.
 - **Google Apps Script / Google Sheets** — Integrasi eksternal untuk membackup dan memulihkan data melalui permintaan HTTP POST dari aplikasi.
 - **Berkas GeoJSON** — Sumber batas kecamatan yang dipakai untuk visualisasi peta.
 
@@ -44,8 +44,9 @@ app.py — Antarmuka Streamlit
 1. Pengguna berinteraksi dengan fitur melalui antarmuka Streamlit di `app.py`.
 2. Untuk membaca atau mengubah data lokal, aplikasi memanggil fungsi di `data_manager.py`.
 3. Data master dan riwayat disimpan dalam berkas Excel di direktori `data/`; metrik kontrak dihitung saat data dimuat.
-4. Dashboard menggunakan data tersebut untuk menyajikan ringkasan, grafik, tabel, dan peta. Peta memerlukan berkas GeoJSON.
-5. Pengguna dapat memicu backup ke atau pemulihan dari Google Sheets melalui Google Apps Script.
+4. Daftar materi promosi hanya memuat material Vinyl Billboard, Vinyl Baliho, Vinyl PJU, dan Vinyl Midis; brand dan versinya dapat dipilih pada formulir penggantian visual.
+5. Dashboard menggunakan data tersebut untuk menyajikan ringkasan, grafik, tabel, dan peta. Peta memerlukan berkas GeoJSON.
+6. Pengguna dapat memicu backup ke atau pemulihan dari Google Sheets melalui Google Apps Script.
 
 ## Teknologi utama
 
