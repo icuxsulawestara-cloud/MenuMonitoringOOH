@@ -1625,9 +1625,9 @@ elif menu == "3. Penggantian Brand & Visual":
                             "Berikut penggantian visual OOH:\n\n"
                             ""
                             
-                            "Dear Mas Basori, Tolong dibuatkan SPK nya"
-                            ""
-                            ""
+                            "Dear Mas Basori, Tolong dibuatkan SPK nya"\n\n"
+                            "\n\n""
+                            "\n\n""
                             "Regards,\n\n"
                             "Eka Sulawestara"
                         )
