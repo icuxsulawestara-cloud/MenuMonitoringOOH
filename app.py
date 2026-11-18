@@ -1462,7 +1462,47 @@ elif menu == "3. Penggantian Brand & Visual":
 # ==============================================================================
 elif menu == "4. Report Kontrak & Warning":
     st.title("Report Jangka Waktu Kontrak & Warning")
-    df_rep = df_filtered.copy()
+
+    report_filter_columns = [
+        ("Jenis OOH", "Filter Jenis OOH"),
+        ("Kota", "Filter Kota"),
+        ("Zona", "Filter Zona"),
+        ("Sektor", "Filter Sektor"),
+    ]
+    report_filters = {}
+    filter_containers = st.columns(len(report_filter_columns))
+    for (column, label), container in zip(report_filter_columns, filter_containers):
+        options = ["Semua"] + sorted(df[column].dropna().astype(str).unique().tolist())
+        with container:
+            report_filters[column] = st.selectbox(
+                label,
+                options,
+                key=f"report_filter_{column}",
+            )
+
+    df_rep = df.copy()
+    for column, selected_value in report_filters.items():
+        if selected_value != "Semua":
+            df_rep = df_rep[df_rep[column].astype(str) == selected_value]
+
+    columns_through_location = list(df_rep.columns[:df_rep.columns.get_loc("Lokasi") + 1])
+    brand_columns = [
+        "Mother Brand Muka 1",
+        "Mother Brand Muka 2",
+        "Master Brand Muka 1",
+        "Versi Muka 1",
+        "Master Brand Muka 2",
+        "Versi Muka 2",
+        "Master Brand Event",
+        "Versi event",
+    ]
+    report_columns = columns_through_location + [
+        column for column in brand_columns
+        if column in df_rep.columns and column not in columns_through_location
+    ]
+    report_columns.extend(column for column in df_rep.columns if column not in report_columns)
+    df_rep = df_rep[report_columns].rename(columns={"Versi event": "Versi Event"})
+
     st.dataframe(df_rep, use_container_width=True, hide_index=True)
     st.download_button("Download Report (.xlsx)", data=to_excel_bytes(df_rep), file_name="Report_OOH.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
