@@ -1623,6 +1623,11 @@ elif menu == "3. Penggantian Brand & Visual":
                         email_body = (
                             f"Dear {target_vendor},\n\n"
                             "Berikut penggantian visual OOH:\n\n"
+                            ""
+                            
+                            "Dear Mas Basori, Tolong dibuatkan SPK nya
+                            ""
+                            ""
                             "Regards,\n\n"
                             "Eka Sulawestara"
                         )
