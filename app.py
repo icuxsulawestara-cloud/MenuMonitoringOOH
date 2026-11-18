@@ -18,6 +18,7 @@ from data_manager import (
     load_log_data,
     load_master_data,
     load_promo_materials,
+    filter_promo_materials_for_ooh,
     now_wib,
     parse_promo_material_upload,
     rollback_log_entry,
@@ -1021,12 +1022,69 @@ elif menu == "3. Penggantian Brand & Visual":
                 horizontal=True
             )
 
-            promo_brand_keys = {}
-            promo_version_keys = {}
-            if (
+            uses_promo_materials = (
                 "1. Penggantian Reguler" in jenis_pergantian
                 or "3. Penggantian Massal" in jenis_pergantian
-            ):
+            )
+            selected_targets = [selected_label]
+            if "3. Penggantian Massal" in jenis_pergantian:
+                promo_mode_key = "massal"
+
+                def clear_bulk_promo_selection():
+                    for face in ("m1", "m2"):
+                        selection_key = f"promo_material_{promo_mode_key}_{face}_{row['ID OOH']}"
+                        brand_key = f"promo_brand_{promo_mode_key}_{face}_{row['ID OOH']}"
+                        version_key = f"promo_version_{promo_mode_key}_{face}_{row['ID OOH']}"
+                        if selection_key in st.session_state:
+                            st.session_state[selection_key] = None
+                        if brand_key in st.session_state:
+                            st.session_state[brand_key] = (
+                                replacement_brand_choices[0] if face == "m1" else "-"
+                            )
+                        if version_key in st.session_state:
+                            st.session_state[version_key] = ""
+
+                selected_targets = st.multiselect(
+                    "Pilih beberapa titik OOH yang ingin diganti secara massal:",
+                    df_ganti_filtered["Label_Pilih"].tolist(),
+                    default=[selected_label],
+                    key="bulk_visual_targets",
+                    on_change=clear_bulk_promo_selection,
+                )
+
+            df_compatible_promo_materials = df_available_promo_materials.iloc[0:0].copy()
+            if uses_promo_materials:
+                selected_target_rows = df_ganti_filtered[
+                    df_ganti_filtered["Label_Pilih"].isin(selected_targets)
+                ]
+                compatible_material_indexes = set(df_available_promo_materials.index)
+                for _, target_row in selected_target_rows.iterrows():
+                    target_materials = filter_promo_materials_for_ooh(
+                        df_available_promo_materials,
+                        target_row["Jenis OOH"],
+                        target_row["Ukuran"],
+                    )
+                    compatible_material_indexes.intersection_update(target_materials.index)
+                df_compatible_promo_materials = (
+                    df_available_promo_materials.loc[
+                        sorted(compatible_material_indexes)
+                    ].reset_index(drop=True)
+                    if not selected_target_rows.empty
+                    else df_available_promo_materials.iloc[0:0].copy()
+                )
+                st.caption(
+                    "Materi Promosi difilter berdasarkan jenis dan ukuran titik OOH; "
+                    "pada penggantian massal, materi harus cocok untuk semua titik terpilih."
+                )
+                if df_compatible_promo_materials.empty:
+                    st.info(
+                        "Tidak ada materi Available yang cocok dengan jenis OOH dan "
+                        "ukuran titik terpilih."
+                    )
+
+            promo_brand_keys = {}
+            promo_version_keys = {}
+            if uses_promo_materials:
                 promo_mode_key = "regular" if "1. Penggantian Reguler" in jenis_pergantian else "massal"
                 face_defaults = {
                     "m1": (
@@ -1042,7 +1100,7 @@ elif menu == "3. Penggantian Brand & Visual":
                 def format_promo_material_option(material_index):
                     if material_index is None:
                         return "Tidak menggunakan materi promosi"
-                    material = df_available_promo_materials.iloc[material_index]
+                    material = df_compatible_promo_materials.iloc[material_index]
                     return (
                         f"{material['Material']} | {material['Brand']} | "
                         f"{material['Version']} | Available: "
@@ -1062,7 +1120,7 @@ elif menu == "3. Penggantian Brand & Visual":
                         st.session_state[version_key] = default_version
                         return
 
-                    material = df_available_promo_materials.iloc[material_index]
+                    material = df_compatible_promo_materials.iloc[material_index]
                     st.session_state[brand_key] = clean_str(material["Brand"], default_brand)
                     st.session_state[version_key] = clean_str(material["Version"], "")
 
@@ -1085,20 +1143,21 @@ elif menu == "3. Penggantian Brand & Visual":
                         st.session_state[version_key] = default_version
 
                     with container:
-                        st.selectbox(
-                            f"Isi Brand dan Versi {face_label} dari Materi Promosi Tersedia (opsional)",
-                            options=[None] + list(range(len(df_available_promo_materials))),
-                            format_func=format_promo_material_option,
-                            key=selection_key,
-                            on_change=apply_promo_material_selection,
-                            args=(
-                                selection_key,
-                                brand_key,
-                                version_key,
-                                default_brand,
-                                default_version,
-                            ),
-                        )
+                        if not df_compatible_promo_materials.empty:
+                            st.selectbox(
+                                f"Isi Brand dan Versi {face_label} dari Materi Promosi Tersedia (opsional)",
+                                options=[None] + list(range(len(df_compatible_promo_materials))),
+                                format_func=format_promo_material_option,
+                                key=selection_key,
+                                on_change=apply_promo_material_selection,
+                                args=(
+                                    selection_key,
+                                    brand_key,
+                                    version_key,
+                                    default_brand,
+                                    default_version,
+                                ),
+                            )
 
             with st.form("form_ganti_visual"):
                 col_t1, col_t2 = st.columns(2)
@@ -1209,12 +1268,6 @@ elif menu == "3. Penggantian Brand & Visual":
                     
                 else:
                     st.markdown("#### Form Penggantian Visual Massal (Semua Titik Terpilih)")
-                    selected_targets = st.multiselect(
-                        "Pilih beberapa titik OOH yang ingin diganti secara massal:",
-                        df_ganti_filtered["Label_Pilih"].tolist(),
-                        default=[selected_label],
-                        key="bulk_visual_targets"
-                    )
                     if not selected_targets:
                         st.warning("Pilih minimal satu titik OOH.")
                     col_mass_1, col_mass_2 = st.columns(2)

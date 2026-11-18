@@ -1,6 +1,9 @@
 import os
-import pandas as pd
+import re
 from datetime import datetime
+from decimal import Decimal
+
+import pandas as pd
 import pytz
 
 MASTER_FILE = "data/Master OOH.xlsx"
@@ -12,6 +15,12 @@ EXCEL_PATH = "data/Master Vendor-Visual OOH-Email Pejabat.xlsx"
 PROMO_MATERIAL_FILE = "data/Materi Promosi.xlsx"
 PROMO_MATERIAL_KEYWORDS = ("Vinyl Billboard", "Vinyl Baliho", "Vinyl PJU", "Vinyl Midis")
 PROMO_STOCK_COLUMNS = ("Available", "In Transfer", "Book", "Bon", "Total", "UOM")
+PROMO_MATERIAL_TYPES = {
+    "billboard": "Vinyl Billboard",
+    "baliho": "Vinyl Baliho",
+    "midis": "Vinyl Midis",
+    "pju": "Vinyl PJU",
+}
 
 COLUMNS_MASTER = [
     "No", "Kota", "Zona", "Sektor", "ID OOH", "Nama Vendor", "Jenis OOH",
@@ -273,6 +282,42 @@ def _filter_promo_materials(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_promo_materials() -> pd.DataFrame:
     return _filter_promo_materials(pd.read_excel(PROMO_MATERIAL_FILE))
+
+def _normalize_material_size(value):
+    match = re.search(
+        r"(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)",
+        str(value),
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return tuple(
+        format(Decimal(dimension.replace(",", ".")).normalize(), "f")
+        for dimension in match.groups()
+    )
+
+def filter_promo_materials_for_ooh(
+    materials: pd.DataFrame,
+    jenis_ooh,
+    ukuran,
+) -> pd.DataFrame:
+    material_type = PROMO_MATERIAL_TYPES.get(str(jenis_ooh).strip().casefold())
+    target_size = _normalize_material_size(ukuran)
+    if material_type is None or target_size is None:
+        return materials.iloc[0:0].copy()
+
+    type_matches = (
+        materials["Material"]
+        .astype("string")
+        .str.strip()
+        .str.casefold()
+        .str.startswith(material_type.casefold(), na=False)
+    )
+    size_matches = materials["Material"].map(
+        lambda value: _normalize_material_size(value) == target_size
+    )
+    available = pd.to_numeric(materials["Available"], errors="coerce").fillna(0) > 0
+    return materials.loc[type_matches & size_matches & available].copy()
 
 def parse_promo_material_upload(uploaded_file) -> pd.DataFrame:
     if hasattr(uploaded_file, "seek"):

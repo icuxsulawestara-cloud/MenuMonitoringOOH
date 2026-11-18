@@ -44,7 +44,7 @@ app.py — Antarmuka Streamlit
 1. Pengguna berinteraksi dengan fitur melalui antarmuka Streamlit di `app.py`.
 2. Untuk membaca atau mengubah data lokal, aplikasi memanggil fungsi di `data_manager.py`.
 3. Data master dan riwayat disimpan dalam berkas Excel di direktori `data/`; metrik kontrak dihitung saat data dimuat.
-4. Daftar materi promosi hanya memuat material Vinyl Billboard, Vinyl Baliho, Vinyl PJU, dan Vinyl Midis; file Excel dapat diunggah untuk mengganti daftar, filter stok tersedia, dan brand/versinya dapat dipilih pada formulir penggantian visual.
+4. Daftar materi promosi hanya memuat material Vinyl Billboard, Vinyl Baliho, Vinyl PJU, dan Vinyl Midis; file Excel dapat diunggah untuk mengganti daftar, filter stok tersedia, dan pilihan brand/versi pada penggantian visual disaring sesuai jenis serta ukuran titik OOH.
 5. Dashboard menggunakan data tersebut untuk menyajikan ringkasan, grafik, tabel, dan peta. Peta memerlukan berkas GeoJSON.
 6. Pengguna dapat memicu backup ke atau pemulihan dari Google Sheets melalui Google Apps Script.
 
