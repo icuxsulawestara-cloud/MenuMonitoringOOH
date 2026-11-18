@@ -462,8 +462,7 @@ st.sidebar.subheader("☁️ Backup & Load Google Sheet")
 with st.sidebar.expander("Pengaturan & Sinkronisasi Sheet", expanded=False):
     st.caption("✅ Menggunakan koneksi Web App Google Apps Script.")
 
-    col_gs1 = st.columns()
-    with col_gs1:
+    st.columns()
         btn_load_gs = st.button("⬇️ Load", use_container_width=True)
 
     
