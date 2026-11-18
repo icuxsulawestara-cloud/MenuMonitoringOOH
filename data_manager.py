@@ -10,6 +10,8 @@ VISUAL_FILE = "data/Master Visual.xlsx"
 PEJABAT_FILE = "data/Master Pejabat.xlsx"
 EXCEL_PATH = "data/Master Vendor-Visual OOH-Email Pejabat.xlsx"
 PROMO_MATERIAL_FILE = "data/Materi Promosi.xlsx"
+PROMO_MATERIAL_KEYWORDS = ("Vinyl Billboard", "Vinyl Baliho", "Vinyl PJU", "Vinyl Midis")
+PROMO_STOCK_COLUMNS = ("Available", "In Transfer", "Book", "Bon", "Total", "UOM")
 
 COLUMNS_MASTER = [
     "No", "Kota", "Zona", "Sektor", "ID OOH", "Nama Vendor", "Jenis OOH",
@@ -246,11 +248,10 @@ def load_extra_masters():
 
     return df_v, df_vis, df_p
 
-def load_promo_materials() -> pd.DataFrame:
-    df = pd.read_excel(PROMO_MATERIAL_FILE)
+def _filter_promo_materials(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [str(column).strip() for column in df.columns]
 
-    required_columns = ["Material", "Brand", "Version"]
+    required_columns = ["Material", "Brand", "Version", "Available"]
     missing_columns = [column for column in required_columns if column not in df.columns]
     if missing_columns:
         raise ValueError(
@@ -259,12 +260,89 @@ def load_promo_materials() -> pd.DataFrame:
         )
 
     material_filter = df["Material"].astype("string").str.contains(
-        r"Vinyl Billboard|Vinyl Baliho|Vinyl PJU|Vinyl midis",
+        "|".join(PROMO_MATERIAL_KEYWORDS),
         case=False,
         na=False,
         regex=True,
     )
-    return df.loc[material_filter].reset_index(drop=True)
+    df = df.loc[material_filter].copy()
+    for column in PROMO_STOCK_COLUMNS:
+        if column in df.columns and column != "UOM":
+            df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0)
+    return df.reset_index(drop=True)
+
+def load_promo_materials() -> pd.DataFrame:
+    return _filter_promo_materials(pd.read_excel(PROMO_MATERIAL_FILE))
+
+def parse_promo_material_upload(uploaded_file) -> pd.DataFrame:
+    if hasattr(uploaded_file, "seek"):
+        uploaded_file.seek(0)
+    raw = pd.read_excel(uploaded_file, header=None)
+
+    required_headers = {"Material", "Brand", "Version"}
+    header_index = next(
+        (
+            index
+            for index, row in raw.iterrows()
+            if required_headers.issubset(
+                {str(value).strip() for value in row if pd.notna(value)}
+            )
+        ),
+        None,
+    )
+    if header_index is None:
+        raise ValueError("Header Material, Brand, dan Version tidak ditemukan.")
+
+    original_headers = raw.iloc[header_index].tolist()
+    has_grouped_stock_header = any(
+        str(value).strip() == "Stock Type"
+        for value in original_headers
+        if pd.notna(value)
+    )
+
+    if has_grouped_stock_header:
+        subheaders = raw.iloc[header_index + 1].tolist()
+        headers = []
+        for index, header in enumerate(original_headers):
+            header_name = str(header).strip() if pd.notna(header) else ""
+            subheader_name = str(subheaders[index]).strip() if pd.notna(subheaders[index]) else ""
+            if header_name == "Stock Type" or (
+                not header_name and subheader_name in PROMO_STOCK_COLUMNS
+            ):
+                headers.append(subheader_name)
+            else:
+                headers.append(header_name)
+        first_data_row = header_index + 2
+    else:
+        headers = [
+            str(header).strip() if pd.notna(header) else ""
+            for header in original_headers
+        ]
+        first_data_row = header_index + 1
+
+    df = raw.iloc[first_data_row:].copy()
+    df.columns = headers
+    df = df.loc[:, [column for column in df.columns if column]]
+
+    report_date = next(
+        (
+            str(row.iloc[1]).replace(":", "").strip()
+            for _, row in raw.iloc[:header_index].iterrows()
+            if len(row) > 1 and str(row.iloc[0]).strip() == "Tgl Report" and pd.notna(row.iloc[1])
+        ),
+        None,
+    )
+    if report_date and "Tgl Report" not in df.columns:
+        df.insert(0, "Tgl Report", report_date)
+
+    return _filter_promo_materials(df)
+
+def save_promo_materials(df: pd.DataFrame) -> None:
+    filtered_df = _filter_promo_materials(df.copy())
+    if filtered_df.empty:
+        raise ValueError("File tidak memiliki materi Vinyl yang didukung.")
+    os.makedirs(os.path.dirname(PROMO_MATERIAL_FILE), exist_ok=True)
+    filtered_df.to_excel(PROMO_MATERIAL_FILE, index=False, engine="openpyxl")
 
 def save_extra_masters(df_v, df_vis, df_p):
     """Menyimpan kembali perubahan master data ke file Excel dengan multi-sheet."""

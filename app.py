@@ -19,10 +19,12 @@ from data_manager import (
     load_master_data,
     load_promo_materials,
     now_wib,
+    parse_promo_material_upload,
     rollback_log_entry,
     save_extra_masters,
     save_log_data,
     save_master_data,
+    save_promo_materials,
     get_effective_brand_version,
     enrich_contract_metrics,
     append_log_pergantian,
@@ -1795,10 +1797,40 @@ elif menu == "7. List Materi Promosi":
         "Vinyl PJU, atau Vinyl Midis."
     )
 
+    with st.expander("Upload Data Materi Promosi (.xlsx)", expanded=False):
+        st.caption("Upload akan mengganti seluruh daftar saat ini dengan data yang sesuai.")
+        uploaded_promo_file = st.file_uploader(
+            "Pilih file Excel",
+            type=["xlsx"],
+            key="promo_material_upload",
+        )
+        if st.button("Ganti Data Materi Promosi", key="replace_promo_materials"):
+            if uploaded_promo_file is None:
+                st.warning("Pilih file Excel terlebih dahulu.")
+            else:
+                try:
+                    uploaded_promo_materials = parse_promo_material_upload(
+                        uploaded_promo_file
+                    )
+                    if uploaded_promo_materials.empty:
+                        st.error(
+                            "Tidak ditemukan materi Vinyl Billboard, Vinyl Baliho, "
+                            "Vinyl PJU, atau Vinyl Midis. Data saat ini tidak diubah."
+                        )
+                    else:
+                        save_promo_materials(uploaded_promo_materials)
+                        st.success(
+                            f"Data Materi Promosi berhasil diganti dengan "
+                            f"{len(uploaded_promo_materials)} baris."
+                        )
+                        st.rerun()
+                except (ValueError, OSError, IndexError, KeyError) as error:
+                    st.error(f"Gagal memproses file Excel: {error}")
+
     if df_promo_materials.empty:
         st.info("Tidak ada materi promosi yang sesuai dengan kategori tersebut.")
     else:
-        col_material, col_brand = st.columns(2)
+        col_material, col_brand, col_available = st.columns(3)
         material_options = ["Semua Material"] + sorted(
             df_promo_materials["Material"].dropna().astype(str).unique().tolist()
         )
@@ -1826,10 +1858,34 @@ elif menu == "7. List Materi Promosi":
                 brand_options,
                 key="promo_list_brand_filter",
             )
+
+        available_values = pd.to_numeric(
+            df_promo_materials["Available"], errors="coerce"
+        ).fillna(0)
+        available_slider_max = max(int(available_values.max()), 1)
+        available_filter_key = "promo_list_available_filter"
+        current_available_range = st.session_state.get(available_filter_key)
+        if current_available_range and current_available_range[1] > available_slider_max:
+            st.session_state[available_filter_key] = (0, available_slider_max)
+        with col_available:
+            available_min, available_max = st.slider(
+                "Filter Available",
+                min_value=0,
+                max_value=available_slider_max,
+                value=(0, available_slider_max),
+                key=available_filter_key,
+            )
+
         if selected_brand != "Semua Brand":
             df_promo_list = df_promo_list[
                 df_promo_list["Brand"].astype(str) == selected_brand
             ]
+        filtered_available = pd.to_numeric(
+            df_promo_list["Available"], errors="coerce"
+        ).fillna(0)
+        df_promo_list = df_promo_list[
+            filtered_available.between(available_min, available_max)
+        ]
 
         st.metric("Jumlah Materi", len(df_promo_list))
         st.dataframe(df_promo_list, use_container_width=True, hide_index=True)
