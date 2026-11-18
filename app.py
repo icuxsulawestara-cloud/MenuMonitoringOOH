@@ -1619,7 +1619,7 @@ Eka Sulawestara"""
                     col_d1, col_d2 = st.columns(2)
                 with col_d1:
                     
-                    btn_backup_gs = st.button("💾 Save ke Sheet", use_container_width=True, key="btn_b_sheet_only")
+                    btn_backup_gs = st.button("💾 Save", use_container_width=True, key="btn_b_sheet_only")
 
                     if btn_backup_gs:
                         try:
@@ -1633,9 +1633,9 @@ Eka Sulawestara"""
                             st.error(f"Gagal backup: {e}")
 
                 with col_d2:
-                    if st.button("🗑️ Reset / Kosongkan Antrean Email Ini", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
+                    if st.button("🗑️ Reset Data", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
                         st.session_state["email_batch_cleared"] = True
-                        st.success("✅ Antrean kirim email berhasil dikosongkan!")
+                        st.success("✅ Data berhasil direset!")
                         st.rerun()
                     
                     
