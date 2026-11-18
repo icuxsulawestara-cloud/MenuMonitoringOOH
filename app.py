@@ -1591,74 +1591,56 @@ elif menu == "3. Penggantian Brand & Visual":
                     )
 
                 with col_d2:
-                    if selected_vendor_filter != "Semua Vendor":
-                        target_vendor = selected_vendor_filter
-                    elif all_vendors_in_batch:
-                        target_vendor = all_vendors_in_batch[0]
-                    else:
-                        target_vendor = None
+                    target_vendor = selected_vendor_filter if selected_vendor_filter != "Semua Vendor" else all_vendors_in_batch[0]
+                    v_email_row = df_vendor_master[df_vendor_master["Nama Vendor"].astype(str).str.lower() == target_vendor.lower()]
+                    to_email = v_email_row["Email Vendor"].values[0] if not v_email_row.empty else ""
+                    
+                    cc_emails = "; ".join(df_pejabat_master["CC Email"].dropna().astype(str).tolist()) if not df_pejabat_master.empty else ""
+                    email_subject = f"Penggantian Visual OOH - {info_pasang_txt} ({target_vendor})"
+                    email_body = f"""Dear {target_vendor},
 
-                    if target_vendor:
-                        v_email_row = df_vendor_master[
-                            df_vendor_master["Nama Vendor"].astype(str).str.lower()
-                            == target_vendor.lower()
-                        ]
-                        to_email = (
-                            v_email_row["Email Vendor"].values[0]
-                            if not v_email_row.empty
-                            else ""
-                        )
+Berikut penggantian visual OOH:
 
-                        cc_emails = (
-                            "; ".join(
-                                df_pejabat_master["CC Email"].dropna().astype(str).tolist()
-                            )
-                            if not df_pejabat_master.empty
-                            else ""
-                        )
-                        email_subject = (
-                            f"Penggantian Visual OOH - {info_pasang_txt} "
-                            f"({target_vendor})"
-                        )
-                        email_body = (
-                            f"Dear {target_vendor},\n\n"
-                            "Berikut penggantian visual OOH:\n\n"
-                            "\n\n"
-                            
-                            "Dear Mas Basori, Tolong dibuatkan SPK nya\n\n"
-                            "\n\n"
-                            "Regards,\n\n"
-                            "Eka Sulawestara"
-                        )
-                        mailto_url = (
-                            f"mailto:{urllib.parse.quote(to_email)}"
-                            f"?cc={urllib.parse.quote(cc_emails)}"
-                            f"&subject={urllib.parse.quote(email_subject)}"
-                            f"&body={urllib.parse.quote(email_body)}"
-                        )
+Dear Mas Basori, Tolong dibuatkan SPK nya
 
-                        st.link_button(
-                            label=f"✉️ Buka Draft Email (TO: {to_email})",
-                            url=mailto_url,
-                            use_container_width=True,
-                        )
-                    else:
-                        st.warning(
-                            "Draft email tidak dapat dibuat karena nama vendor "
-                            "belum tercatat pada riwayat."
-                        )
+Regards,
+
+Eka Sulawestara"""
+                    mailto_url = f"mailto:{urllib.parse.quote(to_email)}?cc={urllib.parse.quote(cc_emails)}&subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
+                    
+                    st.link_button(
+                        label=f"✉️ Buka Draft Email (TO: {to_email})",
+                        url=mailto_url,
+                        use_container_width=True
+                    )
 
                     st.write("")
-                    if st.button(
-                        "🗑️ Reset / Kosongkan Antrean Email Ini",
-                        use_container_width=True,
-                        type="secondary",
-                        key="btn_reset_antrean_email",
-                    ):
+                    if st.button("🗑️ Reset / Kosongkan Antrean Email Ini", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
                         st.session_state["email_batch_cleared"] = True
                         st.success("✅ Antrean kirim email berhasil dikosongkan!")
                         st.rerun()
 
+                # ==========================================================
+                # TOMBOL BACKUP SAJA DI BAWAH SINI
+                # ==========================================================
+                st.divider()
+                st.subheader("💾 Save Data")
+                
+                with st.expander("Pengaturan 💾 Google Sheet", expanded=False):
+                    st.caption("✅ Mengirim dan menimpa data master ke Google Sheet.")
+
+                    btn_backup_gs = st.button("💾 Save ke Sheet", use_container_width=True, key="btn_b_sheet_only")
+
+                    if btn_backup_gs:
+                        try:
+                            with st.spinner("Save ke Google Sheet..."):
+                                success, msg = backup_to_google_sheets()
+                                if success:
+                                    st.success("✅ " + msg)
+                                else:
+                                    st.error("❌ " + msg)
+                        except Exception as e:
+                            st.error(f"Gagal backup: {e}")
         st.divider()
         with st.expander("📜 Riwayat Lengkap Penggantian Visual OOH", expanded=False):
             if df_log_history.empty:
