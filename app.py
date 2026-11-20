@@ -1580,12 +1580,16 @@ elif menu == "3. Penggantian Brand & Visual":
                             use_container_width=True,
                         )
 
+                    
                     with col_d2:
                         v_email_row = df_vendor_master[
                             df_vendor_master["Nama Vendor"].astype(str).str.strip().str.lower()
                             == target_vendor.strip().lower()
                         ]
-                        to_email = str(v_email_row["Email Vendor"].values).strip() if not v_email_row.empty else ""
+                        valid_emails = v_email_row["Email Vendor"].dropna().astype(str).str.strip()
+                        valid_emails = valid_emails[valid_emails != ""]
+                        to_email = valid_emails.iloc[0] if not valid_emails.empty else ""
+                        
 
                         cc_emails = (
                             "; ".join(df_pejabat_master["CC Email"].dropna().astype(str).str.strip().tolist())
