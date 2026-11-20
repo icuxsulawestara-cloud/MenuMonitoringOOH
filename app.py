@@ -1550,7 +1550,7 @@ elif menu == "3. Penggantian Brand & Visual":
                 })
             if not rows_formatted:
                 st.info("ℹ️ Tidak ada data penggantian visual yang valid untuk filter vendor & tanggal rencana order ini.")
-            else:
+                else:
                 df_visual_table = pd.DataFrame(rows_formatted)
                 st.dataframe(df_visual_table, use_container_width=True, hide_index=True)
 
