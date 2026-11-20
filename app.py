@@ -1554,35 +1554,47 @@ elif menu == "3. Penggantian Brand & Visual":
                 df_visual_table = pd.DataFrame(rows_formatted)
                 st.dataframe(df_visual_table, use_container_width=True, hide_index=True)
 
-                png_bytes = generate_ooh_replacement_png(
-                    df_table=df_visual_table,
-                    info_pasang=info_pasang_txt,
-                    info_bongkar=info_bongkar_txt,
-                    catatan_pasang=catatan_pasang_txt,
-                    catatan_bongkar=catatan_bongkar_txt,
-                )
+                if selected_vendor_filter == "Semua Vendor":
+                    st.info("ℹ️ Pilih salah satu nama vendor pada **Filter Berdasarkan Vendor** untuk menampilkan preview gambar PNG, tombol download, dan tombol kirim email.")
+                else:
+                    target_vendor = selected_vendor_filter
 
-                st.image(png_bytes, caption="Preview Hasil Gambar Tabel (.PNG)", use_container_width=True)
-
-                col_d1, col_d2 = st.columns(2)
-                with col_d1:
-                    st.download_button(
-                        label="📥 Download Gambar Tabel (.PNG)",
-                        data=png_bytes,
-                        file_name=f"Penggantian_Visual_OOH_{selected_vendor_filter.replace(' ', '_')}_{now_wib().strftime('%Y%m%d_%H%M')}.png",
-                        mime="image/png",
-                        type="primary",
-                        use_container_width=True,
+                    png_bytes = generate_ooh_replacement_png(
+                        df_table=df_visual_table,
+                        info_pasang=info_pasang_txt,
+                        info_bongkar=info_bongkar_txt,
+                        catatan_pasang=catatan_pasang_txt,
+                        catatan_bongkar=catatan_bongkar_txt,
                     )
 
-                with col_d2:
-                    target_vendor = selected_vendor_filter if selected_vendor_filter != "Semua Vendor" else all_vendors_in_batch[0]
-                    v_email_row = df_vendor_master[df_vendor_master["Nama Vendor"].astype(str).str.lower() == target_vendor.lower()]
-                    to_email = v_email_row["Email Vendor"].values[0] if not v_email_row.empty else ""
-                    
-                    cc_emails = "; ".join(df_pejabat_master["CC Email"].dropna().astype(str).tolist()) if not df_pejabat_master.empty else ""
-                    email_subject = f"Penggantian Visual OOH - {info_pasang_txt} ({target_vendor})"
-                    email_body = f"""Dear {target_vendor},
+                    st.image(png_bytes, caption=f"Preview Hasil Gambar Tabel (.PNG) - {target_vendor}", use_container_width=True)
+
+                    col_d1, col_d2 = st.columns(2)
+                    with col_d1:
+                        st.download_button(
+                            label="📥 Download Gambar Tabel (.PNG)",
+                            data=png_bytes,
+                            file_name=f"Penggantian_Visual_OOH_{target_vendor.replace(' ', '_')}_{now_wib().strftime('%Y%m%d_%H%M')}.png",
+                            mime="image/png",
+                            type="primary",
+                            use_container_width=True,
+                        )
+
+                    with col_d2:
+                        v_email_row = df_vendor_master[
+                            df_vendor_master["Nama Vendor"].astype(str).str.strip().str.lower()
+                            == target_vendor.strip().lower()
+                        ]
+                        to_email = str(v_email_row["Email Vendor"].values).strip() if not v_email_row.empty else ""
+
+                        cc_emails = (
+                            "; ".join(df_pejabat_master["CC Email"].dropna().astype(str).str.strip().tolist())
+                            if not df_pejabat_master.empty
+                            else ""
+                        )
+
+                        email_subject = f"Penggantian Visual OOH - {info_pasang_txt} ({target_vendor})"
+                        email_body = f"""Dear {target_vendor},
 
 Berikut penggantian visual OOH:
 
@@ -1591,21 +1603,28 @@ Dear Mas Basori, Tolong dibuatkan SPK nya
 Regards,
 
 Eka Sulawestara"""
-                    mailto_url = f"mailto:{urllib.parse.quote(to_email)}?cc={urllib.parse.quote(cc_emails)}&subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
-                    
-                    st.link_button(
-                        label=f"✉️ Buka Draft Email (TO: {to_email})",
-                        url=mailto_url,
-                        use_container_width=True
-                    )
 
-                    st.write("")
+                        mailto_url = (
+                            f"mailto:{urllib.parse.quote(to_email)}"
+                            f"?cc={urllib.parse.quote(cc_emails)}"
+                            f"&subject={urllib.parse.quote(email_subject)}"
+                            f"&body={urllib.parse.quote(email_body)}"
+                        )
 
-                    col_d1, col_d2 = st.columns(2)
-                with col_d1:
-                    
+                        if to_email:
+                            st.link_button(
+                                label=f"✉️ Buka Draft Email (TO: {to_email})",
+                                url=mailto_url,
+                                use_container_width=True,
+                            )
+                        else:
+                            st.error(f"❌ Alamat email untuk vendor '{target_vendor}' belum terdaftar di Master Vendor.")
+
+                st.write("")
+
+                col_btn_save, col_btn_reset = st.columns(2)
+                with col_btn_save:
                     btn_backup_gs = st.button("💾 Save", use_container_width=True, key="btn_b_sheet_only")
-
                     if btn_backup_gs:
                         try:
                             with st.spinner("Save ke Google Sheet..."):
@@ -1617,11 +1636,12 @@ Eka Sulawestara"""
                         except Exception as e:
                             st.error(f"Gagal backup: {e}")
 
-                with col_d2:
+                with col_btn_reset:
                     if st.button("🗑️ Reset Data", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
                         st.session_state["email_batch_cleared"] = True
                         st.success("✅ Data berhasil direset!")
                         st.rerun()
+
                     
                     
                             
