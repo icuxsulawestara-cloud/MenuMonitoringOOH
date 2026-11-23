@@ -166,11 +166,10 @@ def load_from_google_sheets():
 
             df_v_load = pd.DataFrame(db_data.get("master_vendor", [["Nama Vendor", "Email Vendor"]])[1:],
                                       columns=db_data.get("master_vendor", [["Nama Vendor", "Email Vendor"]])[0]) if len(db_data.get("master_vendor", [])) > 1 else pd.DataFrame(columns=["Nama Vendor", "Email Vendor"])
-            
-            # Sesuaikan kunci dictionary payload dari Apps Script
+
             df_vis_load = pd.DataFrame(db_data.get("master_visual_ooh", db_data.get("master_visual", [["Master Brand", "Versi / Visual"]]))[1:],
                                         columns=db_data.get("master_visual_ooh", db_data.get("master_visual", [["Master Brand", "Versi / Visual"]]))[0]) if len(db_data.get("master_visual_ooh", db_data.get("master_visual", []))) > 1 else pd.DataFrame(columns=["Master Brand", "Versi / Visual"])
-            
+
             df_p_load = pd.DataFrame(db_data.get("master_email_pejabat", db_data.get("master_pejabat", [["CC Email"]]))[1:],
                                       columns=db_data.get("master_email_pejabat", db_data.get("master_pejabat", [["CC Email"]]))[0]) if len(db_data.get("master_email_pejabat", db_data.get("master_pejabat", []))) > 1 else pd.DataFrame(columns=["CC Email"])
 
@@ -199,6 +198,45 @@ def norm_kecamatan_key(val: str) -> str:
     if pd.isna(val):
         return ""
     return "".join(str(val).lower().split())
+
+def resolve_material_name(
+    promo_materials: pd.DataFrame,
+    jenis_ooh: str,
+    ukuran: str,
+    brand_baru: str,
+    versi_baru: str,
+    brand_lama: str = "",
+) -> str:
+    if promo_materials is None or promo_materials.empty:
+        return "-"
+
+    matched = filter_promo_materials_for_ooh(promo_materials, jenis_ooh, ukuran)
+    if matched.empty:
+        return "-"
+
+    b_baru = clean_str(brand_baru).casefold()
+    v_baru = clean_str(versi_baru).casefold()
+    b_lama = clean_str(brand_lama).casefold()
+
+    brand_series = matched["Brand"].astype("string").str.strip().str.casefold()
+    version_series = matched["Version"].astype("string").str.strip().str.casefold()
+
+    if b_baru and b_baru != "-" and v_baru and v_baru != "-":
+        exact_bv = matched[(brand_series == b_baru) & (version_series == v_baru)]
+        if not exact_bv.empty:
+            return clean_str(exact_bv.iloc[0].get("Material"), "-")
+
+    if b_baru and b_baru != "-":
+        exact_b = matched[brand_series == b_baru]
+        if not exact_b.empty:
+            return clean_str(exact_b.iloc[0].get("Material"), "-")
+
+    if b_lama and b_lama != "-":
+        exact_old_b = matched[brand_series == b_lama]
+        if not exact_old_b.empty:
+            return clean_str(exact_old_b.iloc[0].get("Material"), "-")
+
+    return clean_str(matched.iloc[0].get("Material"), "-")
 
 @st.cache_data
 def load_combined_geojson():
@@ -293,32 +331,32 @@ def get_brand_style(brand_name: str):
     return "#1F2937", "#F9FAFB"
 
 MAP_BRAND_PALETTE = [
-    "#7E22CE",  # Ungu
-    "#EAB308",  # Kuning
-    "#0D9488",  # Teal
-    "#DB2777",  # Pink / Magenta
-    "#4F46E5",  # Indigo
-    "#65A30D",  # Lime
-    "#D97706",  # Amber
-    "#FFFFFF",  # Putih
+    "#7E22CE",
+    "#EAB308",
+    "#0D9488",
+    "#DB2777",
+    "#4F46E5",
+    "#65A30D",
+    "#D97706",
+    "#FFFFFF",
 ]
 
 def get_map_brand_color(brand_name: str, index: int = 0) -> str:
     b = " ".join(str(brand_name).upper().split())
     if "SUPER" in b:
-        return "#DC2626"   # Merah
+        return "#DC2626"
     if "BLACK MATCHA" in b or ("BLACK" in b and "MATCHA" in b):
-        return "#16A34A"   # Hijau
+        return "#16A34A"
     if "76" in b or "APEL" in b:
-        return "#F97316"   # Orange
+        return "#F97316"
     if "LA ICE" in b:
-        return "#2563EB"   # Biru
+        return "#2563EB"
     if "DJARUM D" in b or b == "D" or b.startswith("D "):
-        return "#111111"   # Hitam
+        return "#111111"
     if "BLACK" in b:
-        return "#14532D"   # Hijau tua untuk varian Black lain
+        return "#14532D"
     if b in ["", "-", "NONE", "NAN", "<NA>"]:
-        return "#FFFFFF"   # Putih
+        return "#FFFFFF"
     return MAP_BRAND_PALETTE[index % len(MAP_BRAND_PALETTE)]
 
 def build_gmaps_url(lat, lon) -> str:
@@ -344,7 +382,7 @@ def generate_ooh_replacement_png(
     total_len = sum(col_max_lengths)
     col_widths = [length / total_len for length in col_max_lengths]
 
-    fig_width = max(25, len(df_table.columns) * 2.2)
+    fig_width = max(26, len(df_table.columns) * 2.2)
     row_height = 0.45
     fig_height = max(3.5, (num_rows + 4) * row_height)
 
@@ -383,6 +421,24 @@ def generate_ooh_replacement_png(
     table.auto_set_font_size(False)
     table.set_fontsize(8.5)
 
+    col_names = list(df_table.columns)
+    brand_col_indices = {
+        idx for idx, name in enumerate(col_names)
+        if str(name).strip().lower() == "brand"
+    }
+    new_version_col_indices = {
+        idx for idx, name in enumerate(col_names)
+        if "versi yang baru" in str(name).strip().lower()
+    }
+    material_col_indices = {
+        idx for idx, name in enumerate(col_names)
+        if str(name).strip().lower() == "material"
+    }
+    left_align_cols = {
+        idx for idx, name in enumerate(col_names)
+        if str(name).strip().lower() in {"alamat ooh", "versi lama", "versi yang baru / penggantian", "material"}
+    }
+
     for (row, col), cell in table.get_celld().items():
         cell.set_width(col_widths[col])
         cell.set_edgecolor("#000000")
@@ -390,27 +446,33 @@ def generate_ooh_replacement_png(
 
         if row == 0:
             cell.set_height(0.14)
-            if col <= 9:
-                cell.set_facecolor("#D9D9D9")
-                cell.set_text_props(color="#000000", weight="bold", ha="center", va="center")
-            elif col in [10, 11]:
+            if col in brand_col_indices:
                 cell.set_facecolor("#FFFF00")
                 cell.set_text_props(color="#000000", weight="bold", ha="center", va="center")
-            else:
+            elif col in new_version_col_indices:
                 cell.set_facecolor("#00FF88")
+                cell.set_text_props(color="#000000", weight="bold", ha="center", va="center")
+            elif col in material_col_indices:
+                cell.set_facecolor("#DBEAFE")
+                cell.set_text_props(color="#000000", weight="bold", ha="center", va="center")
+            else:
+                cell.set_facecolor("#D9D9D9")
                 cell.set_text_props(color="#000000", weight="bold", ha="center", va="center")
         else:
             val_str = str(df_table.iloc[row - 1, col])
-            if col in [9, 11, 13]:
+            if col in left_align_cols:
                 cell.get_text().set_ha("left")
                 cell.PAD = 0.04
             else:
                 cell.get_text().set_ha("center")
 
-            if col in [10, 12]:
+            if col in brand_col_indices:
                 bg_color, txt_color = get_brand_style(val_str)
                 cell.set_facecolor(bg_color)
                 cell.set_text_props(color=txt_color, weight="bold")
+            elif col in material_col_indices:
+                cell.set_facecolor("#EFF6FF")
+                cell.set_text_props(color="#1E3A8A", weight="bold")
             else:
                 cell.set_facecolor("#FFFFFF")
                 if col <= 8:
@@ -489,7 +551,7 @@ zona_list = ["Semua Zona"] + sorted(df_filtered["Zona"].dropna().unique().tolist
 selected_zona = st.sidebar.selectbox("Zona", zona_list)
 if selected_zona != "Semua Zona":
     df_filtered = df_filtered[df_filtered["Zona"] == selected_zona]
-    
+
 # --- BACKUP & LOAD GOOGLE SHEETS ---
 st.sidebar.divider()
 st.sidebar.subheader("☁️ Backup & Load Google Sheet")
@@ -1068,17 +1130,17 @@ elif menu == "3. Penggantian Brand & Visual":
             st.warning(f"Tidak ada data OOH untuk Kota '{selected_kota_ganti}'.")
         else:
             df_ganti_filtered["Label_Pilih"] = (
-                df_ganti_filtered["ID OOH"].astype(str) 
-                + " | Vendor: " + df_ganti_filtered["Nama Vendor"].fillna("-") 
-                + " | " + df_ganti_filtered["Kota"] 
-                + " - " + df_ganti_filtered["Lokasi"] 
-                + " (" + df_ganti_filtered["Jenis OOH"] 
+                df_ganti_filtered["ID OOH"].astype(str)
+                + " | Vendor: " + df_ganti_filtered["Nama Vendor"].fillna("-")
+                + " | " + df_ganti_filtered["Kota"]
+                + " - " + df_ganti_filtered["Lokasi"]
+                + " (" + df_ganti_filtered["Jenis OOH"]
                 + " | Ukuran: " + df_ganti_filtered["Ukuran"].fillna("-") + ")"
             )
-            
+
             with col_f_kota2:
                 selected_label = st.selectbox("Pilih Titik OOH yang Akan Diganti Materi:", df_ganti_filtered["Label_Pilih"].tolist())
-            
+
             idx = df[df["ID OOH"].astype(str) == str(df_ganti_filtered[df_ganti_filtered["Label_Pilih"] == selected_label]["ID OOH"].iloc[0])].index[0]
             row = df.loc[idx]
 
@@ -1254,7 +1316,7 @@ elif menu == "3. Penggantian Brand & Visual":
 
                 if "1. Penggantian Reguler" in jenis_pergantian:
                     st.markdown("#### Form Penggantian Master Brand / Visual Reguler (Muka 1 & Muka 2)")
-                    
+
                     col_m1, col_m2 = st.columns(2)
                     with col_m1:
                         st.markdown("##### 📌 Muka 1")
@@ -1267,7 +1329,7 @@ elif menu == "3. Penggantian Brand & Visual":
                             m1_brand_options,
                             key=promo_brand_keys["m1"],
                         )
-                        
+
                         st.text_input("Versi / Visual Muka 1 Lama (Saat Ini)", value=m1_versi_now, disabled=True)
                         new_versi_1 = st.text_input(
                             "Versi / Visual Muka 1 Baru",
@@ -1285,13 +1347,13 @@ elif menu == "3. Penggantian Brand & Visual":
                             m2_choices,
                             key=promo_brand_keys["m2"],
                         )
-                        
+
                         st.text_input("Versi / Visual Muka 2 Lama (Saat Ini)", value=m2_versi_now, disabled=True)
                         new_versi_2 = st.text_input(
                             "Versi / Visual Muka 2 Baru",
                             key=promo_version_keys["m2"],
                         )
-                    
+
                     mode_record = "Reguler"
 
                 elif "2. Event & Penyelesaian" in jenis_pergantian:
@@ -1349,7 +1411,7 @@ elif menu == "3. Penggantian Brand & Visual":
                         new_brand_2 = "-"
                         new_versi_2 = "-"
                         mode_record = "Selesai Event"
-                    
+
                 else:
                     st.markdown("#### Form Penggantian Visual Massal (Semua Titik Terpilih)")
                     if not selected_targets:
@@ -1396,8 +1458,8 @@ elif menu == "3. Penggantian Brand & Visual":
                 if btn_update:
                     df_save = df[COLUMNS_MASTER].copy()
                     text_cols_to_fix = [
-                        "Master Brand Muka 1", "Master Brand Muka 2", 
-                        "Versi Muka 1", "Versi Muka 2", 
+                        "Master Brand Muka 1", "Master Brand Muka 2",
+                        "Versi Muka 1", "Versi Muka 2",
                         "Master Brand Event", "Versi event"
                     ]
                     for col in text_cols_to_fix:
@@ -1454,7 +1516,7 @@ elif menu == "3. Penggantian Brand & Visual":
                             df_save.at[idx, "Versi Muka 2"] = new_versi_2.strip() if new_versi_2.strip() else None
                             df_save.at[idx, "Master Brand Event"] = None
                             df_save.at[idx, "Versi event"] = None
-                            
+
                             log_entry = {
                                 "Tanggal Update": now_wib().strftime("%d-%m-%Y %H:%M"),
                                 "ID OOH": row["ID OOH"], "Kota": row["Kota"], "Lokasi": row["Lokasi"], "Nama Vendor": row["Nama Vendor"],
@@ -1476,14 +1538,14 @@ elif menu == "3. Penggantian Brand & Visual":
 
                             df_save.at[idx, "Master Brand Event"] = None if not new_brand_1.strip() else new_brand_1.strip()
                             df_save.at[idx, "Versi event"] = new_versi_1.strip() if new_versi_1.strip() else None
-                            
+
                             log_entry = {
                                 "Tanggal Update": now_wib().strftime("%d-%m-%Y %H:%M"),
                                 "ID OOH": row["ID OOH"], "Kota": row["Kota"], "Lokasi": row["Lokasi"], "Nama Vendor": row["Nama Vendor"],
                                 "Tgl Rencana Order": tgl_rencana_order.strftime("%d-%m-%Y"), "Tgl Rencana Ganti": tgl_rencana_ganti.strftime("%d-%m-%Y"),
-                                "Brand Muka 1 Lama": reg_brand_lama if reg_brand_lama != "-" else None, 
+                                "Brand Muka 1 Lama": reg_brand_lama if reg_brand_lama != "-" else None,
                                 "Brand Muka 1 Baru": None,
-                                "Versi Muka 1 Lama": reg_versi_lama if reg_versi_lama != "-" else None, 
+                                "Versi Muka 1 Lama": reg_versi_lama if reg_versi_lama != "-" else None,
                                 "Versi Muka 1 Baru": None,
                                 "Brand Muka 2 Lama": None, "Brand Muka 2 Baru": None, "Versi Muka 2 Lama": None, "Versi Muka 2 Baru": None,
                                 "Brand Event Lama": event_brand_now if event_brand_now != "-" else None,
@@ -1497,7 +1559,7 @@ elif menu == "3. Penggantian Brand & Visual":
                             df_save.at[idx, "Versi event"] = None
                             df_save.at[idx, "Master Brand Muka 1"] = None if new_brand_1 == "-" else new_brand_1
                             df_save.at[idx, "Versi Muka 1"] = new_versi_1.strip() if new_versi_1.strip() else None
-                            
+
                             log_entry = {
                                 "Tanggal Update": now_wib().strftime("%d-%m-%Y %H:%M"),
                                 "ID OOH": row["ID OOH"], "Kota": row["Kota"], "Lokasi": row["Lokasi"], "Nama Vendor": row["Nama Vendor"],
@@ -1521,7 +1583,7 @@ elif menu == "3. Penggantian Brand & Visual":
                         st.rerun()
 
         st.divider()
-        st.subheader("📧 Data Penggantian Visual OOH (Siap Kirim ke Vendor via Email)")
+        st.subheader("📧 Log Hasil Pemesanan & Kirim ke Pejabat / Vendor")
 
         if "email_batch_cleared" not in st.session_state:
             st.session_state["email_batch_cleared"] = False
@@ -1549,23 +1611,27 @@ elif menu == "3. Penggantian Brand & Visual":
                 "Catatan Pengembalian Materi Lama:",
                 value="Materi Lama / Lepasan > Harap segera dikembalikan ke Gudang DSO Surabaya Barat (Pak Amin)",
             )
-        
+
         if df_log_source.empty:
             st.info("ℹ️ Belum ada riwayat pergantian materi OOH untuk ditampilkan pada tabel email.")
         else:
-            # Membuat dua kolom untuk filter Vendor dan filter Tanggal Rencana Order
             col_f1, col_f2 = st.columns(2)
-            
+
             with col_f1:
                 all_vendors_in_batch = sorted(list({str(v) for v in df_log_source["Nama Vendor"].dropna().unique().tolist()}))
                 filter_vendor_opts = ["Semua Vendor"] + all_vendors_in_batch
                 selected_vendor_filter = st.selectbox("🔍 Filter Berdasarkan Vendor:", filter_vendor_opts)
 
             with col_f2:
-                # Mengambil daftar tanggal unik dari kolom "Tgl Rencana Order"
-                all_order_dates = sorted(list({str(d).split()[0] for d in df_log_source.get("Tgl Rencana Order", pd.Series()).dropna().unique().tolist()}))
+                all_order_dates = sorted(
+                    list({
+                        str(d).split()[0]
+                        for d in df_log_source.get("Tgl Rencana Order", pd.Series()).dropna().unique().tolist()
+                        if str(d).strip() and str(d).strip().lower() not in ["nan", "none", "nat"]
+                    })
+                )
                 filter_date_opts = ["Semua Tanggal Order"] + all_order_dates
-                selected_order_date_filter = st.selectbox("📅 Filter Berdasarkan Tgl Rencana Order:", filter_date_opts)
+                selected_order_date_filter = st.selectbox("📅 Filter Tanggal Order Penggantian:", filter_date_opts)
 
             rows_formatted = []
             df_log_unique = df_log_source.drop_duplicates(subset=["ID OOH"], keep="first")
@@ -1574,11 +1640,9 @@ elif menu == "3. Penggantian Brand & Visual":
                 v_item = str(item.get("Nama Vendor", "-"))
                 tgl_order_item = str(item.get("Tgl Rencana Order", "-")).split()[0]
 
-                # Filter berdasarkan Vendor
                 if selected_vendor_filter != "Semua Vendor" and v_item != selected_vendor_filter:
                     continue
-                
-                # Filter berdasarkan Tanggal Rencana Order
+
                 if selected_order_date_filter != "Semua Tanggal Order" and tgl_order_item != selected_order_date_filter:
                     continue
 
@@ -1631,6 +1695,15 @@ elif menu == "3. Penggantian Brand & Visual":
                     versi_baru = clean_str(item.get("Versi Muka 1 Baru"), "-")
                     ket_lokasi = str(item.get("Lokasi", "-"))
 
+                material_val = resolve_material_name(
+                    promo_materials=df_promo_materials,
+                    jenis_ooh=jenis_val,
+                    ukuran=ukuran_val,
+                    brand_baru=brand_baru,
+                    versi_baru=versi_baru,
+                    brand_lama=brand_lama,
+                )
+
                 rows_formatted.append({
                     "Zona": zona_val,
                     "Sektor": sektor_val,
@@ -1646,9 +1719,11 @@ elif menu == "3. Penggantian Brand & Visual":
                     "Versi Lama": versi_lama,
                     "Brand ": brand_baru,
                     "Versi yang Baru / Penggantian": versi_baru,
+                    "Material": material_val,
                 })
+
             if not rows_formatted:
-                st.info("ℹ️ Tidak ada data penggantian visual yang valid untuk filter vendor & tanggal rencana order ini.")
+                st.info("ℹ️ Tidak ada data penggantian visual yang valid untuk filter vendor & tanggal order penggantian ini.")
             else:
                 df_visual_table = pd.DataFrame(rows_formatted)
                 st.dataframe(df_visual_table, use_container_width=True, hide_index=True)
@@ -1679,7 +1754,6 @@ elif menu == "3. Penggantian Brand & Visual":
                             use_container_width=True,
                         )
 
-                    
                     with col_d2:
                         v_email_row = df_vendor_master[
                             df_vendor_master["Nama Vendor"].astype(str).str.strip().str.lower()
@@ -1688,7 +1762,6 @@ elif menu == "3. Penggantian Brand & Visual":
                         valid_emails = v_email_row["Email Vendor"].dropna().astype(str).str.strip()
                         valid_emails = valid_emails[valid_emails != ""]
                         to_email = valid_emails.iloc[0] if not valid_emails.empty else ""
-                        
 
                         cc_emails = (
                             "; ".join(df_pejabat_master["CC Email"].dropna().astype(str).str.strip().tolist())
@@ -1752,12 +1825,6 @@ Eka Sulawestara"""
                             st.success("✅ Data berhasil direset!")
                             st.rerun()
 
-                    
-                    
-                            
-                    
-
-               
         st.divider()
         with st.expander("📜 Riwayat Lengkap Penggantian Visual OOH", expanded=False):
             if df_log_history.empty:
@@ -1883,8 +1950,7 @@ elif menu == "4. Report Kontrak & Warning":
 # ==============================================================================
 elif menu == "5. Pengaturan Master (Vendor, Visual & Pejabat)":
     st.title("⚙️ Pengaturan Master Data (Vendor, Visual OOH & Email Pejabat)")
-    
-    # Memuat data terbaru dari file Excel
+
     df_vendor_master, df_visual_master, df_pejabat_master = load_extra_masters()
 
     t_v, t_vis, t_p = st.tabs(["Master Vendor & Email", "Master Visual OOH (Brand & Versi)", "Master Email Pejabat (CC)"])
