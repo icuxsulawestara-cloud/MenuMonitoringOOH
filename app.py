@@ -292,21 +292,34 @@ def get_brand_style(brand_name: str):
         return "#FFFFFF", "#111827"
     return "#1F2937", "#F9FAFB"
 
-def get_map_brand_color(brand_name: str) -> str:
-    b = str(brand_name).upper().strip()
-    if "BLACK" in b or "D WRAPS" in b or ("DJARUM" in b and "76" not in b):
-        return "#111827"
-    elif "LA ICE" in b:
-        return "#0284C7"
-    elif "LA BOLD" in b:
-        return "#1E3A8A"
-    elif "76" in b or "APEL" in b:
-        return "#EA580C"
-    elif "SUPER" in b:
-        return "#DC2626"
-    elif b in ["-", "", "NONE", "NAN"]:
-        return "#6B7280"
-    return "#7C3AED"
+MAP_BRAND_PALETTE = [
+    "#DC2626",  # Merah
+    "#14532D",  # Hijau tua
+    "#EAB308",  # Kuning
+    "#2563EB",  # Biru
+    "#7E22CE",  # Ungu
+    "#F97316",  # Orange
+    "#111111",  # Hitam
+    "#FFFFFF",  # Putih
+]
+
+def get_map_brand_color(brand_name: str, index: int = 0) -> str:
+    b = " ".join(str(brand_name).upper().split())
+    if "BLACK" in b:
+        return "#111111"   # Hitam
+    if "76" in b or "APEL" in b:
+        return "#DC2626"   # Merah
+    if "SUPER" in b:
+        return "#F97316"   # Orange
+    if "LA ICE" in b:
+        return "#2563EB"   # Biru
+    if "LA BOLD" in b:
+        return "#7E22CE"   # Ungu
+    if "D WRAPS" in b or "MATCHA" in b or "SIRO" in b or "KURO" in b:
+        return "#14532D"   # Hijau tua
+    if b in ["", "-", "NONE", "NAN", "<NA>"]:
+        return "#FFFFFF"   # Putih
+    return MAP_BRAND_PALETTE[index % len(MAP_BRAND_PALETTE)]
 
 def build_gmaps_url(lat, lon) -> str:
     if pd.isna(lat) or pd.isna(lon) or float(lat) == 0 or float(lon) == 0:
@@ -668,7 +681,10 @@ if menu == "1. Dashboard & Monitoring OOH":
                 )
 
                 unique_map_brands = sorted(valid_coords["Mother_Brand_Map"].unique().tolist())
-                brand_color_map = {b: get_map_brand_color(b) for b in unique_map_brands}
+                brand_color_map = {
+                    b: get_map_brand_color(b, idx)
+                    for idx, b in enumerate(unique_map_brands)
+                }
 
                 fig_scatter = px.scatter_map(
                     valid_coords,
