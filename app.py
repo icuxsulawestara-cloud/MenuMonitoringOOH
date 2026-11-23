@@ -292,6 +292,28 @@ def get_brand_style(brand_name: str):
         return "#FFFFFF", "#111827"
     return "#1F2937", "#F9FAFB"
 
+def get_map_brand_color(brand_name: str) -> str:
+    b = str(brand_name).upper().strip()
+    if "BLACK" in b or "D WRAPS" in b or ("DJARUM" in b and "76" not in b):
+        return "#111827"
+    elif "LA ICE" in b:
+        return "#0284C7"
+    elif "LA BOLD" in b:
+        return "#1E3A8A"
+    elif "76" in b or "APEL" in b:
+        return "#EA580C"
+    elif "SUPER" in b:
+        return "#DC2626"
+    elif b in ["-", "", "NONE", "NAN"]:
+        return "#6B7280"
+    return "#7C3AED"
+
+def build_gmaps_url(lat, lon) -> str:
+    if pd.isna(lat) or pd.isna(lon) or float(lat) == 0 or float(lon) == 0:
+        return ""
+    return f"https://www.google.com/maps/search/?api=1&query={float(lat):.6f},{float(lon):.6f}"
+
+
 def generate_ooh_replacement_png(
     df_table: pd.DataFrame,
     info_pasang: str = "-",
@@ -629,31 +651,44 @@ if menu == "1. Dashboard & Monitoring OOH":
             if not valid_coords.empty:
                 eff_brands_map = []
                 eff_vers_map = []
+                mother_brands_map = []
                 for _, r in valid_coords.iterrows():
-                   eff = get_effective_brand_version(r)
-                   eff_brands_map.append(eff["Brand"])
-                   eff_vers_map.append(eff["Version"])
+                    eff = get_effective_brand_version(r)
+                    eff_brands_map.append(eff["Brand"])
+                    eff_vers_map.append(eff["Version"])
+                    mb1 = clean_str(r.get("Mother Brand Muka 1"), clean_str(r.get("Master Brand Muka 1"), "-"))
+                    mother_brands_map.append(mb1 if mb1 else "-")
 
                 valid_coords = valid_coords.copy()
                 valid_coords["Brand_Aktif"] = eff_brands_map
                 valid_coords["Versi_Aktif"] = eff_vers_map
+                valid_coords["Mother_Brand_Map"] = mother_brands_map
+                valid_coords["Google_Maps"] = valid_coords.apply(
+                    lambda r: build_gmaps_url(r["Latitude"], r["Longitude"]), axis=1
+                )
+
+                unique_map_brands = sorted(valid_coords["Mother_Brand_Map"].unique().tolist())
+                brand_color_map = {b: get_map_brand_color(b) for b in unique_map_brands}
 
                 fig_scatter = px.scatter_map(
                     valid_coords,
                     lat="Latitude",
                     lon="Longitude",
+                    color="Mother_Brand_Map",
+                    color_discrete_map=brand_color_map,
                     custom_data=[
                         "ID OOH", "Nama Vendor", "Jenis OOH", "Ukuran",
                         "Kota", "Sektor", "Lokasi", "Brand_Aktif",
-                        "Versi_Aktif", "Status Kontrak",
+                        "Versi_Aktif", "Status Kontrak", "Mother_Brand_Map",
                     ],
                     zoom=zoom_lvl,
                     center={"lat": center_lat, "lon": center_lon},
                 )
                 fig_scatter.update_traces(
-                    marker=dict(size=11, color="#DC2626", opacity=0.95),
+                    marker=dict(size=12, opacity=0.95),
                     hovertemplate=(
                         "<b>%{customdata[0]}</b> | %{customdata[2]} (%{customdata[3]})<br>"
+                        "Mother Brand: <b>%{customdata[10]}</b><br>"
                         "Vendor: <b>%{customdata[1]}</b><br>"
                         "Wilayah: %{customdata[4]} - Kec. %{customdata[5]}<br>"
                         "Lokasi: %{customdata[6]}<br>"
@@ -663,6 +698,7 @@ if menu == "1. Dashboard & Monitoring OOH":
                     ),
                 )
                 for trace in fig_scatter.data:
+                    trace.name = f"Brand: {trace.name}"
                     fig_map.add_trace(trace)
 
                 fig_map.update_layout(
@@ -671,6 +707,31 @@ if menu == "1. Dashboard & Monitoring OOH":
                     legend=dict(yanchor="top", y=0.98, xanchor="left", x=0.01, bgcolor="rgba(255, 255, 255, 0.88)"),
                 )
             st.plotly_chart(fig_map, use_container_width=True)
+
+            if not valid_coords.empty:
+                with st.expander("🔗 Daftar Titik & Link Google Maps (Sesuai Filter Peta)", expanded=False):
+                    gmaps_cols = [
+                        "ID OOH", "Kota", "Sektor", "Lokasi",
+                        "Mother_Brand_Map", "Brand_Aktif", "Versi_Aktif", "Google_Maps"
+                    ]
+                    df_gmaps_view = valid_coords[gmaps_cols].rename(
+                        columns={
+                            "Mother_Brand_Map": "Mother Brand",
+                            "Brand_Aktif": "Brand Terpasang",
+                            "Versi_Aktif": "Versi Terpasang",
+                        }
+                    )
+                    st.dataframe(
+                        df_gmaps_view,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Google_Maps": st.column_config.LinkColumn(
+                                "Google Maps",
+                                display_text="📍 Buka Maps",
+                            )
+                        },
+                    )
     else:
         st.info("🔒 Peta disembunyikan untuk menjaga performa agar aplikasi ringan saat dibuka. Geser toggle di atas ke posisi aktif (**Show Maps OOH**) jika ingin menampilkan peta.")
 
@@ -708,7 +769,12 @@ if menu == "1. Dashboard & Monitoring OOH":
     st.divider()
     st.subheader("Tabel Monitoring Penayangan OOH & Edit Manual")
 
-    with st.expander("🔍 Filter Lanjutan Tabel Monitoring", expanded=True):
+    with st.expander("🔍 Filter Lanjutan & Pencarian Tabel Monitoring", expanded=True):
+        search_monitor = st.text_input(
+            "🔎 Cari Cepat (ID OOH, Lokasi, atau Versi)",
+            placeholder="Ketik ID OOH, nama jalan/lokasi, atau versi visual...",
+            key="search_monitor_text",
+        )
         f_col1, f_col2, f_col3, f_col4, f_col5 = st.columns(5)
         with f_col1:
             opts_kota = ["Semua"] + sorted(df_filtered["Kota"].dropna().unique().tolist())
@@ -737,6 +803,14 @@ if menu == "1. Dashboard & Monitoring OOH":
         df_monitor = df_monitor[df_monitor["Nama Vendor"] == filt_vendor]
     if filt_jenis != "Semua":
         df_monitor = df_monitor[df_monitor["Jenis OOH"] == filt_jenis]
+    if search_monitor.strip():
+        kw = search_monitor.strip().lower()
+        search_cols = ["ID OOH", "Lokasi", "Versi Muka 1", "Versi Muka 2", "Versi event"]
+        mask_search = pd.Series(False, index=df_monitor.index)
+        for sc in search_cols:
+            if sc in df_monitor.columns:
+                mask_search = mask_search | df_monitor[sc].fillna("").astype(str).str.lower().str.contains(kw, regex=False)
+        df_monitor = df_monitor[mask_search]
 
     st.info("💡 Tabel ini sinkron dua arah dengan **Riwayat Pergantian Brand, Visual & Event**. Anda dapat melakukan **Edit Manual** langsung pada sel tabel di bawah.")
 
@@ -891,6 +965,12 @@ elif menu == "2. Master Data OOH (Tambah / Edit)":
                     e_brand_event = st.selectbox("Master Brand Event", ev_all_opts, index=e_bev_idx)
                     e_versi_event = st.text_input("Versi event", value=clean_str(row_edit["Versi event"]))
 
+                st.warning("⚠️ Hati-hati: Penghapusan titik OOH bersifat permanen dari Master Data.")
+                confirm_delete_ooh = st.checkbox(
+                    f"Saya yakin ingin menghapus titik OOH '{row_edit['ID OOH']}' secara permanen.",
+                    key="confirm_delete_master_ooh",
+                )
+
                 col_btn1, col_btn2 = st.columns([3, 1])
                 with col_btn1:
                     btn_save_edit = st.form_submit_button("💾 Simpan Perubahan Master OOH", type="primary", use_container_width=True)
@@ -939,10 +1019,13 @@ elif menu == "2. Master Data OOH (Tambah / Edit)":
                         st.rerun()
 
                 if btn_delete_row:
-                    df_after_del = df[COLUMNS_MASTER].drop(index=edit_idx).reset_index(drop=True)
-                    save_master_data(df_after_del)
-                    st.warning(f"Titik OOH ID {row_edit['ID OOH']} telah dihapus dari Master Data!")
-                    st.rerun()
+                    if not confirm_delete_ooh:
+                        st.error("Centang kotak konfirmasi terlebih dahulu sebelum menghapus titik OOH.")
+                    else:
+                        df_after_del = df[COLUMNS_MASTER].drop(index=edit_idx).reset_index(drop=True)
+                        save_master_data(df_after_del)
+                        st.warning(f"Titik OOH ID {row_edit['ID OOH']} telah dihapus dari Master Data!")
+                        st.rerun()
 
 # ==============================================================================
 # MENU 3: PENGGANTIAN BRAND & VISUAL
@@ -1641,10 +1724,17 @@ Eka Sulawestara"""
                             st.error(f"Gagal backup: {e}")
 
                 with col_btn_reset:
+                    confirm_reset_batch = st.checkbox(
+                        "Konfirmasi reset tampilan antrean email",
+                        key="confirm_reset_email_batch",
+                    )
                     if st.button("🗑️ Reset Data", use_container_width=True, type="secondary", key="btn_reset_antrean_email"):
-                        st.session_state["email_batch_cleared"] = True
-                        st.success("✅ Data berhasil direset!")
-                        st.rerun()
+                        if not confirm_reset_batch:
+                            st.warning("Centang konfirmasi reset terlebih dahulu.")
+                        else:
+                            st.session_state["email_batch_cleared"] = True
+                            st.success("✅ Data berhasil direset!")
+                            st.rerun()
 
                     
                     
@@ -1686,7 +1776,41 @@ Eka Sulawestara"""
 elif menu == "4. Report Kontrak & Warning":
     st.title("Report Jangka Waktu Kontrak & Warning")
 
+    df_rep_base = df.copy()
+    if "Status Kontrak" not in df_rep_base.columns:
+        df_rep_base = enrich_contract_metrics(df_rep_base)
+
+    cnt_expired = int((df_rep_base["Status Kontrak"] == "Expired").sum())
+    cnt_kritis = int((df_rep_base["Status Kontrak"] == "Kritis (<= 30 Hari)").sum())
+    cnt_warning = int((df_rep_base["Status Kontrak"] == "Warning (31-90 Hari)").sum())
+    cnt_aktif = int((df_rep_base["Status Kontrak"] == "Aktif (> 90 Hari)").sum())
+
+    if cnt_expired > 0 or cnt_kritis > 0:
+        st.markdown(
+            f"<div class='critical-banner'><strong>PERINGATAN KONTRAK:</strong> Terdapat <b>{cnt_expired} titik Expired</b> dan <b>{cnt_kritis} titik Kritis (≤ 30 hari)</b> yang perlu segera ditindaklanjuti.</div>",
+            unsafe_allow_html=True,
+        )
+    if cnt_warning > 0:
+        st.markdown(
+            f"<div class='warning-banner'><strong>WARNING RENEWAL:</strong> Terdapat <b>{cnt_warning} titik OOH</b> yang masa kontraknya berakhir dalam 31–90 hari.</div>",
+            unsafe_allow_html=True,
+        )
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("🔴 Expired", f"{cnt_expired} Titik")
+    m2.metric("🟠 Kritis (≤ 30 Hari)", f"{cnt_kritis} Titik")
+    m3.metric("🟡 Warning (31–90 Hari)", f"{cnt_warning} Titik")
+    m4.metric("🟢 Aktif (> 90 Hari)", f"{cnt_aktif} Titik")
+    st.divider()
+
+    search_report = st.text_input(
+        "🔎 Cari Cepat (ID OOH, Lokasi, atau Versi)",
+        placeholder="Ketik ID OOH, lokasi titik, atau versi visual...",
+        key="search_report_text",
+    )
+
     report_filter_columns = [
+        ("Status Kontrak", "Filter Status Kontrak"),
         ("Jenis OOH", "Filter Jenis OOH"),
         ("Kota", "Filter Kota"),
         ("Zona", "Filter Zona"),
@@ -1695,7 +1819,7 @@ elif menu == "4. Report Kontrak & Warning":
     report_filters = {}
     filter_containers = st.columns(len(report_filter_columns))
     for (column, label), container in zip(report_filter_columns, filter_containers):
-        options = ["Semua"] + sorted(df[column].dropna().astype(str).unique().tolist())
+        options = ["Semua"] + sorted(df_rep_base[column].dropna().astype(str).unique().tolist())
         with container:
             report_filters[column] = st.selectbox(
                 label,
@@ -1703,10 +1827,19 @@ elif menu == "4. Report Kontrak & Warning":
                 key=f"report_filter_{column}",
             )
 
-    df_rep = df.copy()
+    df_rep = df_rep_base.copy()
     for column, selected_value in report_filters.items():
         if selected_value != "Semua":
             df_rep = df_rep[df_rep[column].astype(str) == selected_value]
+
+    if search_report.strip():
+        kw_rep = search_report.strip().lower()
+        search_rep_cols = ["ID OOH", "Lokasi", "Versi Muka 1", "Versi Muka 2", "Versi event"]
+        mask_rep = pd.Series(False, index=df_rep.index)
+        for sc in search_rep_cols:
+            if sc in df_rep.columns:
+                mask_rep = mask_rep | df_rep[sc].fillna("").astype(str).str.lower().str.contains(kw_rep, regex=False)
+        df_rep = df_rep[mask_rep]
 
     columns_through_location = list(df_rep.columns[:df_rep.columns.get_loc("Lokasi") + 1])
     brand_columns = [
