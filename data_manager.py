@@ -281,6 +281,8 @@ def _filter_promo_materials(df: pd.DataFrame) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 def load_promo_materials() -> pd.DataFrame:
+    if not os.path.exists(PROMO_MATERIAL_FILE):
+        return pd.DataFrame(columns=["Material", "Brand", "Version", "Available", "UOM"])
     return _filter_promo_materials(pd.read_excel(PROMO_MATERIAL_FILE))
 
 def _normalize_material_size(value):
@@ -301,6 +303,9 @@ def filter_promo_materials_for_ooh(
     jenis_ooh,
     ukuran,
 ) -> pd.DataFrame:
+    if materials is None or materials.empty:
+        return pd.DataFrame(columns=["Material", "Brand", "Version", "Available", "UOM"])
+
     material_type = PROMO_MATERIAL_TYPES.get(str(jenis_ooh).strip().casefold())
     target_size = _normalize_material_size(ukuran)
     if material_type is None or target_size is None:
