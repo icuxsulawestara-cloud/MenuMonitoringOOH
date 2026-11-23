@@ -293,30 +293,30 @@ def get_brand_style(brand_name: str):
     return "#1F2937", "#F9FAFB"
 
 MAP_BRAND_PALETTE = [
-    "#DC2626",  # Merah
-    "#14532D",  # Hijau tua
-    "#EAB308",  # Kuning
-    "#2563EB",  # Biru
     "#7E22CE",  # Ungu
-    "#F97316",  # Orange
-    "#111111",  # Hitam
+    "#EAB308",  # Kuning
+    "#0D9488",  # Teal
+    "#DB2777",  # Pink / Magenta
+    "#4F46E5",  # Indigo
+    "#65A30D",  # Lime
+    "#D97706",  # Amber
     "#FFFFFF",  # Putih
 ]
 
 def get_map_brand_color(brand_name: str, index: int = 0) -> str:
     b = " ".join(str(brand_name).upper().split())
-    if "BLACK" in b:
-        return "#111111"   # Hitam
-    if "76" in b or "APEL" in b:
-        return "#DC2626"   # Merah
     if "SUPER" in b:
+        return "#DC2626"   # Merah
+    if "BLACK MATCHA" in b or ("BLACK" in b and "MATCHA" in b):
+        return "#16A34A"   # Hijau
+    if "76" in b or "APEL" in b:
         return "#F97316"   # Orange
     if "LA ICE" in b:
         return "#2563EB"   # Biru
-    if "LA BOLD" in b:
-        return "#7E22CE"   # Ungu
-    if "D WRAPS" in b or "MATCHA" in b or "SIRO" in b or "KURO" in b:
-        return "#14532D"   # Hijau tua
+    if "DJARUM D" in b or b == "D" or b.startswith("D "):
+        return "#111111"   # Hitam
+    if "BLACK" in b:
+        return "#14532D"   # Hijau tua untuk varian Black lain
     if b in ["", "-", "NONE", "NAN", "<NA>"]:
         return "#FFFFFF"   # Putih
     return MAP_BRAND_PALETTE[index % len(MAP_BRAND_PALETTE)]
